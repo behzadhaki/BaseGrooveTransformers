@@ -15,16 +15,16 @@ class Transformer(torch.nn.Module):
         self.Decoder = Decoder(d_model, nhead, dim_feedforward, dropout, num_decoder_layers)
 
 
-    def forward(self, src=None, tgt=None, _mem=None, only_encoder=False, only_decoder=False):
+    def forward(self, src, tgt, use_encoder=False, use_decoder=False):
         x = self.PositionalEncoder(src)
         memory = self.Encoder(x)
         mask = get_tgt_mask(tgt_len = tgt.shape[0])
         out = self.Decoder(tgt, memory, tgt_mask=mask)
 
-        if only_encoder:
+        if use_encoder:
             return memory
 
-        if only_decoder:
+        if use_decoder:
             return self.Decoder(tgt, src, tgt_mask=mask)
 
         return out
