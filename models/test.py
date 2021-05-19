@@ -16,17 +16,28 @@ tgt_len = 32
 src = torch.rand(src_len, N, d_model)
 tgt = torch.rand(tgt_len, N, d_model)
 
-## test transformer
+# test transformer
 TM = Transformer(d_model, nhead, dim_feedforward, dropout, num_encoder_layers,
                  num_decoder_layers, max_len)
 
-#print(TM.forward(src,tgt).shape,TM.forward(src,tgt))
+# print(TM.forward(src,tgt).shape,TM.forward(src,tgt))
 
-## test input layer
+
+# test input layer
 from io_layers import InputLayer
 
-embedding_size = 16
+embedding_size = 27
 d_model = 128
+
+src = torch.rand(src_len, N, embedding_size)
+
 InputLayer = InputLayer(embedding_size, d_model, dropout,max_len)
 y = InputLayer(src)
 print(y.shape, y)
+
+
+# test output layer
+from io_layers import OutputLayer
+OutputLayer = OutputLayer(embedding_size,d_model)
+h,v,o = OutputLayer(y)
+print(h,v,o)
