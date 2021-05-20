@@ -42,12 +42,12 @@ print("data len", train_data.__len__())
 train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
 
 # TRANSFORMER MODEL PARAMETERS
-d_model = 108
-nhead = 3
+d_model = 128
+nhead = 8
 dim_feedforward = d_model * 10
 dropout = 0.1
-num_encoder_layers = 6
-num_decoder_layers = 6
+num_encoder_layers = 1
+num_decoder_layers = 1
 max_len = 32
 
 embedding_size_in = 27
@@ -65,9 +65,9 @@ learning_rate = 1e-3
 batch_size = 64
 epochs = 5
 
-BCE = torch.nn.BCEWithLogitsLoss()
-MSE = torch.nn.MSELoss()
-optimizer = torch.optim.SGD(TM.parameters(), lr=learning_rate)  # cambiar
+BCE = torch.nn.BCEWithLogitsLoss(reduction='sum')
+MSE = torch.nn.MSELoss(reduction='sum')
+optimizer = torch.optim.SGD(TM.parameters(), lr=learning_rate)
 
 def calculate_loss(prediction, y):
     div = int(y.shape[2]/3)
@@ -76,11 +76,16 @@ def calculate_loss(prediction, y):
     BCE_h = BCE(pred_h, y_h)
     MSE_v = MSE(pred_v, y_v)
     MSE_o = MSE(pred_o, y_o)
+    print("BCE hits", BCE_h)
+    print("MSE vels", MSE_v)
+    print("MSE offs", MSE_o)
     return BCE_h + MSE_v + MSE_o
 
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     for batch, (X, y, idx) in enumerate(dataloader):
+        optimizer.zero_grad()  # should be before calculating loss
+
         print(X.shape, y.shape)  # da Nx32xembedding_size
         X = X.permute(1, 0, 2)  # reorder dimensions to 32xNx embedding_size
         y = y.permute(1, 0, 2)  # reorder dimensions
@@ -96,10 +101,10 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         pred = model(X, y_s)
         pred = OL(pred)
 
+
         loss = loss_fn(pred, y)
 
         # Backpropagation
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
