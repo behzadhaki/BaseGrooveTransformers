@@ -50,7 +50,7 @@ class PositionalEncoding(torch.nn.Module):
         return self.dropout(x)
 
 
-def get_tgt_mask(tgt_len):
-    mask = (torch.triu(torch.ones(tgt_len, tgt_len)) == 1).transpose(0, 1).float()
+def get_tgt_mask(d_model):
+    mask = (torch.triu(torch.ones(d_model, d_model)) == 1).transpose(0, 1).float()
     mask = mask.masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
     return mask
