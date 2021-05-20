@@ -38,23 +38,21 @@ with torch.no_grad():
     _h = _h.squeeze()
     v = v.squeeze()
     o = o.squeeze()
+
     # pass hits through activation layer
     h = torch.sigmoid(_h)
     h_thres = torch.where(h>thres, 1, 0)
     pd = torch.rand(h.shape[0], h.shape[1])
     h_pd = torch.where(h > pd, 1, 0)
 
-    # conver to hvo
+    # convert to hvo
     hvo_seq = HVO_Sequence(drum_mapping=ROLAND_REDUCED_MAPPING)
-
     hvo_seq.add_time_signature(0, 4, 4, [4])
     hvo_seq.add_tempo(0, 50)
 
     hits = h_thres
     vels = hits * v * 127
     offs = hits * o
-
-    print(hits.shape, vels.shape, offs.shape)
 
     hvo_seq.hvo = np.concatenate((hits, vels, offs), axis=1)
 
