@@ -10,7 +10,6 @@ from hvo_sequence.drum_mappings import ROLAND_REDUCED_MAPPING
 import numpy as np
 
 
-<<<<<<< HEAD
 def predict(model, use_thres = True, thres = 0.5, use_pd = False):
     model.eval()
     with torch.no_grad():
@@ -54,42 +53,6 @@ if __name__ == "__main__":
 
 
     h,v,o = predict(TM, use_pd=True)
-=======
-d_model = 128
-nhead = 4
-dim_feedforward = d_model * 10
-dropout = 0.1
-num_encoder_layers = 6
-num_decoder_layers = 6
-max_len = 32
-N = 1 # batch size
-src_len = 32
-tgt_len = 32
-
-
-embedding_size_src = 16
-embedding_size_tgt = 27
-
-src = torch.rand(src_len, N, embedding_size_src)
-tgt = torch.rand(tgt_len, N, embedding_size_tgt)
-
-TM = GrooveTransformer(d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward, dropout,
-                       num_encoder_layers, num_decoder_layers, max_len)
-
-thres = 0.5
-TM.eval()
-with torch.no_grad():
-    _h,v,o = TM(src,tgt)
-    _h = _h.squeeze()
-    v = v.squeeze()
-    o = o.squeeze()
-
-    # pass hits through activation layer
-    h = torch.sigmoid(_h)
-    h_thres = torch.where(h>thres, 1, 0)
-    pd = torch.rand(h.shape[0], h.shape[1])
-    h_pd = torch.where(h > pd, 1, 0)
->>>>>>> 9a30acfdead475e9bef150b116985acd237fa1a3
 
     # convert to hvo
     hvo_seq = HVO_Sequence(drum_mapping=ROLAND_REDUCED_MAPPING)
