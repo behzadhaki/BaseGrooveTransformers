@@ -8,7 +8,7 @@ from Subset_Creators.subsetters import GrooveMidiSubsetter
 from dataset_loader import GrooveMidiDataset
 
 from torch.utils.data import DataLoader
-from transformer import Transformer
+from transformer import GrooveTransformer
 from io_layers import InputLayer,OutputLayer
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -59,7 +59,7 @@ max_len = 32
 embedding_size_in = 16
 embedding_size_out = 27
 
-TM = Transformer(d_model, nhead, dim_feedforward, dropout, num_encoder_layers,
+TM = GrooveTransformer(d_model, nhead, dim_feedforward, dropout, num_encoder_layers,
                  num_decoder_layers, max_len).to(device)
 
 IL_Encoder = InputLayer(embedding_size_in,d_model,dropout,max_len)
