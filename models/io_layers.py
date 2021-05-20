@@ -34,7 +34,6 @@ class OutputLayer(torch.nn.Module):
         _o = y[:,:,2,:]
 
         h=_h
-        print(_v.shape)
         v = torch.sigmoid(_v)
         o = torch.tanh(_o)
 
