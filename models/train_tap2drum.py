@@ -102,7 +102,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch):
         X = X.to(device)
         y = y.to(device)
 
-        optim.zero_grad()  # should be before calculating loss
+        optimizer.zero_grad()  # should be before calculating loss
 
         print(X.shape, y.shape)  # da Nx32xembedding_size
         X = X.permute(1, 0, 2)  # reorder dimensions to 32xNx embedding_size
