@@ -10,7 +10,6 @@ import data_loader
 from Subset_Creators.subsetters import GrooveMidiSubsetter
 
 from torch.utils.data import DataLoader
-from torch.utils.data.dataloader import default_collate
 from transformer import GrooveTransformer
 from io_layers import InputLayer, OutputLayer
 
@@ -40,7 +39,7 @@ train_data = data_loader.GrooveMidiDataset(subset=subset_list[0], subset_info=su
 
 print("data len", train_data.__len__(), '\n')
 
-train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True, collate_fn=lambda x: default_collate(x).to(device))
+train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
 
 # TRANSFORMER MODEL PARAMETERS
 d_model = 128
@@ -100,7 +99,10 @@ def load_model_from_latest_checkpoint():
 def train_loop(dataloader, model, loss_fn, optimizer, epoch):
     size = len(dataloader.dataset)
     for batch, (X, y, idx) in enumerate(dataloader):
-        optimizer.zero_grad()  # should be before calculating loss
+        X = X.to(device)
+        y = y.to(device)
+
+        optim.zero_grad()  # should be before calculating loss
 
         print(X.shape, y.shape)  # da Nx32xembedding_size
         X = X.permute(1, 0, 2)  # reorder dimensions to 32xNx embedding_size
