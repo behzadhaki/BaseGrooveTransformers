@@ -14,6 +14,7 @@ def predict(model, use_thres = True, thres = 0.5, use_pd = False):
     model.eval()
     with torch.no_grad():
         _h,v,o = TM(src,tgt)
+        # TODO remove squeeze from here
         _h = _h.squeeze()
         v = v.squeeze()
         o = o.squeeze()
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     hvo_seq.add_tempo(0, 50)
 
     hits = h
-    vels = hits * v * 127
+    vels = hits * v
     offs = hits * o
 
     hvo_seq.hvo = np.concatenate((hits, vels, offs), axis=1)
