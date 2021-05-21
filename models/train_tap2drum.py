@@ -125,6 +125,7 @@ def load_model_from_latest_checkpoint():
 def train_loop(dataloader, model, loss_fn, optim, curr_epoch, epoch_save_div, df_path):
     size = len(dataloader.dataset)
     for batch, (X, y, idx) in enumerate(dataloader):
+        save = (curr_epoch % epoch_save_div == 0)
         X = X.to(device)
         y = y.to(device)
 
@@ -139,7 +140,7 @@ def train_loop(dataloader, model, loss_fn, optim, curr_epoch, epoch_save_div, df
         y_s = torch.cat((y_s, y[:-1, :, :]), dim=0).to(device)
 
         pred = model(X, y_s)
-        loss = loss_fn(pred, y, save_to_df=True, ep=curr_epoch, save_path=df_path)
+        loss = loss_fn(pred, y, save_to_df=save, ep=curr_epoch, save_path=df_path)
 
         # Backpropagation
         optim.zero_grad()
@@ -150,7 +151,7 @@ def train_loop(dataloader, model, loss_fn, optim, curr_epoch, epoch_save_div, df
             loss, current = loss.item(), batch * len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
-        if curr_epoch % epoch_save_div == 0:
+        if save:
             checkpoint_save_path = checkpoint_save_str.format(str(curr_epoch))
             torch.save({'epoch': curr_epoch, 'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(), 'loss': loss}, checkpoint_save_path)
