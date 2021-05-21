@@ -8,6 +8,7 @@ num_encoder_layers = 6
 num_decoder_layers = 6
 max_len = 32
 N = 64 # batch size
+
 src_len = 32
 tgt_len = 32
 
@@ -17,10 +18,10 @@ embedding_size = 27
 from io_layers import InputLayer
 
 src = torch.rand(src_len, N, embedding_size)
+
 InputLayer = InputLayer(embedding_size, d_model, dropout, max_len)
 y = InputLayer(src)
 print(y.shape, y)
-
 
 # test output layer
 from io_layers import OutputLayer

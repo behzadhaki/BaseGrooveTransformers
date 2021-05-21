@@ -30,7 +30,6 @@ class GrooveTransformer(torch.nn.Module):
         self.Decoder = Decoder(d_model, nhead, dim_feedforward, dropout, num_decoder_layers)
         self.OutputLayer = OutputLayer(embedding_size_tgt,d_model)
 
-
     def forward(self, src, tgt=None, only_encoder=False, only_decoder=False):
         mask = get_tgt_mask(self.max_len)
 

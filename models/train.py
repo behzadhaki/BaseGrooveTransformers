@@ -16,7 +16,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 filters = {"beat_type": ["beat"], "time_signature": ["4-4"], "master_id": ["drummer9/session1/9"]}
 
 # LOAD SMALL TRAIN SUBSET
-pickle_source_path = '../../preprocessed_dataset/datasets_extracted_locally/GrooveMidi/hvo_0.4.2/Processed_On_17_05_2021_at_22_32_hrs'
+pickle_source_path = '../../preprocessed_dataset/datasets_extracted_locally/GrooveMidi/hvo_0.4.2' \
+                     '/Processed_On_17_05_2021_at_22_32_hrs '
 subset_name = 'GrooveMIDI_processed_train'
 metadata_csv_filename = 'metadata.csv'
 hvo_pickle_filename = 'hvo_sequence_data.obj'
@@ -46,7 +47,6 @@ print("data len", train_data.__len__())
 
 train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
 
-
 # TRANSFORMER MODEL PARAMETERS
 d_model = 128
 nhead = 4
@@ -62,9 +62,9 @@ embedding_size_out = 27
 TM = GrooveTransformer(d_model, nhead, dim_feedforward, dropout, num_encoder_layers,
                  num_decoder_layers, max_len).to(device)
 
-IL_Encoder = InputLayer(embedding_size_in,d_model,dropout,max_len)
-IL_Decoder = InputLayer(embedding_size_out,d_model,dropout,max_len)
-OL = OutputLayer(embedding_size_out,d_model)
+IL_Encoder = InputLayer(embedding_size_in, d_model, dropout, max_len)
+IL_Decoder = InputLayer(embedding_size_out, d_model, dropout, max_len)
+OL = OutputLayer(embedding_size_out, d_model)
 
 # TRAINING PARAMETERS
 learning_rate = 1e-3
@@ -78,15 +78,15 @@ optimizer = torch.optim.SGD(TM.parameters(), lr=learning_rate)  # cambiar
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     for batch, (X, y, idx) in enumerate(dataloader):
-        print(X.shape, y.shape) # da Nx32xembedding_size
-        X = X.permute(1,0,2)  # reorder dimensions to 32xNx embedding_size
-        y = y.permute(1,0,2)  # reorder dimensions
+        print(X.shape, y.shape)  # da Nx32xembedding_size
+        X = X.permute(1, 0, 2)  # reorder dimensions to 32xNx embedding_size
+        y = y.permute(1, 0, 2)  # reorder dimensions
 
         # Compute prediction and loss
 
         # y_shifted
         y_s = torch.zeros([1, y.shape[1], y.shape[2]])
-        y_s = torch.cat((y_s, y[:-1,:,:]), dim=0)
+        y_s = torch.cat((y_s, y[:-1, :, :]), dim=0)
 
         X = IL_Encoder(X)
         y_s = IL_Decoder(y_s)
@@ -106,8 +106,9 @@ def train_loop(dataloader, model, loss_fn, optimizer):
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
 
-epochs = 10
-for t in range(epochs):
-    print(f"Epoch {t + 1}\n-------------------------------")
-    train_loop(train_dataloader, TM, loss_fn, optimizer)
-    print("Done!")
+if __name__ == "__main__":
+    epochs = 10
+    for t in range(epochs):
+        print(f"Epoch {t + 1}\n-------------------------------")
+        train_loop(train_dataloader, TM, loss_fn, optimizer)
+        print("Done!")
