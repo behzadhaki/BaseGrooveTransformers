@@ -82,8 +82,9 @@ def load_model_from_latest_checkpoint():
     last_checkpoint = 0
     for root, dirs, files in os.walk(checkpoint_path):
         for name in files:
-            checkpoint_epoch = int(name.split('-')[-1])
-            last_checkpoint = checkpoint_epoch if checkpoint_epoch > last_checkpoint else last_checkpoint
+            if name.startswith('transformer_groove_tap2drum-epoch-'):
+                checkpoint_epoch = int(name.split('-')[-1])
+                last_checkpoint = checkpoint_epoch if checkpoint_epoch > last_checkpoint else last_checkpoint
 
     if last_checkpoint > 0:
         path = checkpoint_save_str.format(last_checkpoint)
