@@ -108,8 +108,8 @@ def train_loop(dataloader, model, loss_fn, optimizer, epoch):
         # Compute prediction and loss
 
         # y_shifted
-        y_s = torch.zeros([1, y.shape[1], y.shape[2]])
-        y_s = torch.cat((y_s, y[:-1, :, :]), dim=0)
+        y_s = torch.zeros([1, y.shape[1], y.shape[2]]).to(device)
+        y_s = torch.cat((y_s, y[:-1, :, :]), dim=0).to(device)
 
         pred = model(X, y_s)
         loss = loss_fn(pred, y)
