@@ -7,7 +7,7 @@ dropout = 0.1
 num_encoder_layers = 6
 num_decoder_layers = 6
 max_len = 32
-N = 64 # batch size
+N = 64  # batch size
 
 src_len = 32
 tgt_len = 32
@@ -30,7 +30,6 @@ OutputLayer = OutputLayer(embedding_size, d_model)
 h, v, o = OutputLayer(y)
 print(h, v, o)
 
-
 # test transformer
 from transformer import GrooveTransformer
 
@@ -44,6 +43,6 @@ TM = GrooveTransformer(d_model, embedding_size_src, embedding_size_tgt, nhead, d
                        num_encoder_layers, num_decoder_layers, max_len)
 
 print("TM")
-h,v,o = TM(src,tgt)
+h, v, o = TM(src, tgt)
 print(h.shape, v.shape, o.shape)
-print(h[0,0,:],v[0,0,:],o[0,0,:] )
+print(h[0, 0, :], v[0, 0, :], o[0, 0, :])
