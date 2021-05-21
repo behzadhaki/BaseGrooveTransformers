@@ -60,40 +60,40 @@ batch_size = 64
 BCE = torch.nn.BCEWithLogitsLoss(reduction='none')
 MSE = torch.nn.MSELoss(reduction='none')
 
-
 def calculate_loss(prediction, y, save_to_df=True, ep=0, save_path="."):
+
     div = int(y.shape[2] / 3)
-    y_h, y_v, y_o = torch.split(y, div, 2)
+    y_h, y_v, y_o = torch.split(y, div, 2) # split in voices
     pred_h, pred_v, pred_o = prediction
 
-    BCE_h = BCE(pred_h, y_h)  # 32, 3, 9 -> time steps, batch, voices
-    BCE_h_mean_across_batches = torch.sum(torch.sum(BCE_h, dim=0), dim=1).mean()  # for back propagation
+    BCE_h = BCE(pred_h, y_h)  # 3, 32, 9 -> batch, time steps, voices
+    BCE_h_mean_across_batches = torch.sum(torch.sum(BCE_h, dim=1), dim=1).mean()  # for back propagation
 
     MSE_v = MSE(pred_v, y_v)
-    MSE_v_mean_across_batches = torch.sum(torch.sum(MSE_v, dim=0), dim=1).mean()
+    MSE_v_mean_across_batches = torch.sum(torch.sum(MSE_v, dim=1), dim=1).mean()
 
     MSE_o = MSE(pred_o, y_o)
-    MSE_o_mean_across_batches = torch.sum(torch.sum(MSE_o, dim=0), dim=1).mean()
+    MSE_o_mean_across_batches = torch.sum(torch.sum(MSE_o, dim=1), dim=1).mean()
 
     if save_to_df:
-        BCE_h_per_beat = torch.reshape(BCE_h, (n_beats, int(BCE_h.shape[0] / n_beats), BCE_h.shape[1],
-                                               BCE_h.shape[2]))  # 8, 4, 3, 9 -> beats, steps in beat, batch, voice
-        BCE_h_sum_beat = torch.sum(BCE_h_per_beat, dim=1)  # 8, 3, 9
-        BCE_h_mean = torch.mean(BCE_h_sum_beat, dim=1)  # 8, 9 -> save this?
+        BCE_h_per_beat = torch.reshape(BCE_h, (BCE_h.shape[0], n_beats, int(BCE_h.shape[1] / n_beats),
+                                               BCE_h.shape[2]))  # 3, 8, 4, 9 -> beats, steps in beat, batch, voice
+        BCE_h_sum_beat = torch.sum(BCE_h_per_beat, dim=2)  # 3, 8, 9
+        BCE_h_mean = torch.mean(BCE_h_sum_beat, dim=0)  # 8, 9 -> save this?
         df_hits = pd.DataFrame(BCE_h_mean.detach().numpy())
         df_hits.to_csv(save_path + 'epoch_' + str(ep) + '-BCE_hits.csv')
 
-        MSE_v_per_beat = torch.reshape(MSE_v, (n_beats, int(MSE_v.shape[0] / n_beats), MSE_v.shape[1],
-                                               MSE_v.shape[2]))  # 8, 4, 3, 9 -> beats, steps in beat, batch, voice
-        MSE_v_sum_beat = torch.sum(MSE_v_per_beat, dim=1)  # 8, 3, 9
-        MSE_v_mean = torch.mean(MSE_v_sum_beat, dim=1)  # 8, 9 -> save this?
+        MSE_v_per_beat = torch.reshape(MSE_v, (MSE_v.shape[0], n_beats, int(MSE_v.shape[1] / n_beats),
+                                               MSE_v.shape[2]))  # 3, 8, 4, 9 -> beats, steps in beat, batch, voice
+        MSE_v_sum_beat = torch.sum(MSE_v_per_beat, dim=2)  # 3, 8, 9
+        MSE_v_mean = torch.mean(MSE_v_sum_beat, dim=0)  # 8, 9 -> save this?
         df_vels = pd.DataFrame(MSE_v_mean.detach().numpy())
         df_vels.to_csv(save_path + 'epoch_' + str(ep) + '-MSE_velocities.csv')
 
-        MSE_o_per_beat = torch.reshape(MSE_o, (n_beats, int(MSE_o.shape[0] / n_beats), MSE_o.shape[1],
-                                               MSE_o.shape[2]))  # 8, 4, 3, 9 -> beats, steps in beat, batch, voice
-        MSE_o_sum_beat = torch.sum(MSE_o_per_beat, dim=1)  # 8, 3, 9
-        MSE_o_mean = torch.mean(MSE_o_sum_beat, dim=1)  # 8, 9 -> save this?
+        MSE_o_per_beat = torch.reshape(MSE_o, (MSE_o.shape[0], n_beats, int(MSE_o.shape[1] / n_beats),
+                                               MSE_o.shape[2]))  # 3, 8, 4, 9 -> beats, steps in beat, batch, voice
+        MSE_o_sum_beat = torch.sum(MSE_o_per_beat, dim=2)  # 3, 8, 9
+        MSE_o_mean = torch.mean(MSE_o_sum_beat, dim=0)  # 8, 9 -> save this?
         df_offsets = pd.DataFrame(MSE_o_mean.detach().numpy())
         df_offsets.to_csv(save_path + 'epoch_' + str(ep) + '-MSE_offsets.csv')
 
