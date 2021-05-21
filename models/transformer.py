@@ -32,7 +32,8 @@ class GrooveTransformer(torch.nn.Module):
         self.OutputLayer = OutputLayer(embedding_size_tgt,d_model)
 
     def forward(self, src, tgt=None, only_encoder=False, only_decoder=False):
-        # TODO .todevice
+        # src Nx32xembedding_size_src
+        # tgt Nx32xembedding_size_tgt
         mask = get_tgt_mask(self.max_len).to(self.device)
 
         if only_encoder:
@@ -49,10 +50,10 @@ class GrooveTransformer(torch.nn.Module):
             return out
 
         # encoder-decoder implementation
-        x = self.InputLayerEncoder(src)
-        y = self.InputLayerDecoder(tgt)
-        memory = self.Encoder(x)
-        out = self.Decoder(y, memory, tgt_mask=mask)
-        out = self.OutputLayer(out)
+        x = self.InputLayerEncoder(src) # Nx32xd_model
+        y = self.InputLayerDecoder(tgt) # Nx32xd_model
+        memory = self.Encoder(x)        # Nx32xd_model
+        out = self.Decoder(y, memory, tgt_mask=mask) #Nx32xd_model
+        out = self.OutputLayer(out) #(Nx32xd_model,Nx32xd_model,Nx32xd_model)
 
         return out

@@ -9,18 +9,14 @@ class Decoder(torch.nn.Module):
         self.Decoder = torch.nn.TransformerDecoder(decoder_layer, num_decoder_layers, norm_decoder)
 
     def forward(self, tgt, memory, tgt_mask):
-        print(tgt.shape)
-        tgt = tgt.permute(1, 0, 2)  # N, time_steps, 27 -> time_steps, N, 27
-        print(tgt.shape)
+        # tgt    Nx32xd_model
+        # memory Nx32xd_model
 
-        print(memory.shape)
-        memory = memory.permute(1, 0, 2)  # N, time_steps, 27 -> time_steps, N, 27
-        print(memory.shape)
+        tgt = tgt.permute(1, 0, 2)  # 32xNxd_model
+        memory = memory.permute(1, 0, 2)  # 32xNxd_model
 
-        out = self.Decoder(tgt, memory, tgt_mask)
+        out = self.Decoder(tgt, memory, tgt_mask) #32xNxd_model
 
-        print(out.shape)
-        out = out.permute(1, 0, 2)  # time_steps, N, 27 -> N, time_steps, 27
-        print(out.shape)
+        out = out.permute(1, 0, 2)  # Nx32xd_model
 
         return out
