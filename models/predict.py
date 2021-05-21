@@ -9,6 +9,7 @@ from hvo_sequence.hvo_seq import HVO_Sequence
 from hvo_sequence.drum_mappings import ROLAND_REDUCED_MAPPING
 import numpy as np
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def predict(model, use_thres = True, thres = 0.5, use_pd = False):
     model.eval()
@@ -46,11 +47,11 @@ if __name__ == "__main__":
     embedding_size_src = 16
     embedding_size_tgt = 27
 
-    src = torch.rand(src_len, N, embedding_size_src)
-    tgt = torch.rand(tgt_len, N, embedding_size_tgt)
+    src = torch.rand(N, src_len,  embedding_size_src)
+    tgt = torch.rand(N, tgt_len,  embedding_size_tgt)
 
     TM = GrooveTransformer(d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward, dropout,
-                           num_encoder_layers, num_decoder_layers, max_len)
+                           num_encoder_layers, num_decoder_layers, max_len,device)
 
 
     h,v,o = predict(TM, use_pd=True)
