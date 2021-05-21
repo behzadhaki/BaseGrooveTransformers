@@ -100,9 +100,9 @@ def calculate_loss(prediction, y, save_to_df=True, ep=0, save_path="."):
     return BCE_h_mean_across_batches + MSE_v_mean_across_batches + MSE_o_mean_across_batches
 
 
-def load_model_from_latest_checkpoint():
+def load_model_from_latest_checkpoint(device):
     groove_transformer = GrooveTransformer(d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward,
-                                           dropout, num_encoder_layers, num_decoder_layers, max_len).to(device)
+                                           dropout, num_encoder_layers, num_decoder_layers, max_len, device).to(device)
     sgd_optimizer = torch.optim.SGD(groove_transformer.parameters(), lr=learning_rate)
     last_epoch = 0
     last_checkpoint = 0
@@ -130,16 +130,15 @@ def train_loop(dataloader, model, loss_fn, optim, curr_epoch, epoch_save_div, df
         y = y.to(device)
 
         print(X.shape, y.shape)  # da Nx32xembedding_size
-        X = X.permute(1, 0, 2)  # reorder dimensions to 32xNx embedding_size
-        y = y.permute(1, 0, 2)  # reorder dimensions
 
         # Compute prediction and loss
 
         # y_shifted
-        y_s = torch.zeros([1, y.shape[1], y.shape[2]]).to(device)
-        y_s = torch.cat((y_s, y[:-1, :, :]), dim=0).to(device)
+        y_s = torch.zeros([y.shape[0], 1, y.shape[2]]).to(device)
+        y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
 
         pred = model(X, y_s)
+
         loss = loss_fn(pred, y, save_to_df=save, ep=curr_epoch, save_path=df_path)
 
         # Backpropagation
@@ -158,7 +157,7 @@ def train_loop(dataloader, model, loss_fn, optim, curr_epoch, epoch_save_div, df
 
 
 if __name__ == "__main__":
-    epoch, TM, optimizer = load_model_from_latest_checkpoint()
+    epoch, TM, optimizer = load_model_from_latest_checkpoint(device)
     epoch_save_div = 10
     df_path = "../results/losses_df/"
     while True:
