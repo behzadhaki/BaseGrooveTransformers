@@ -10,6 +10,7 @@ import data_loader
 from Subset_Creators.subsetters import GrooveMidiSubsetter
 
 from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import default_collate
 from transformer import GrooveTransformer
 from io_layers import InputLayer, OutputLayer
 
@@ -39,7 +40,7 @@ train_data = data_loader.GrooveMidiDataset(subset=subset_list[0], subset_info=su
 
 print("data len", train_data.__len__(), '\n')
 
-train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
+train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True, collate_fn=lambda x: default_collate(x).to(device))
 
 # TRANSFORMER MODEL PARAMETERS
 d_model = 128
