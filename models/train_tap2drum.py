@@ -115,10 +115,6 @@ if __name__ == "__main__":
         'df_path': '../results/losses_df/'
     }
 
-    n_beats = 8  # 32 time steps / 4 div per beat
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
     filters = {
         "beat_type": ["beat"],
         "time_signature": ["4-4"]
