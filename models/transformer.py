@@ -9,7 +9,7 @@ from utils import get_tgt_mask
 
 class GrooveTransformer(torch.nn.Module):
     def __init__(self, d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward, dropout,
-                 num_encoder_layers, num_decoder_layers, max_len):
+                 num_encoder_layers, num_decoder_layers, max_len, device):
         super(GrooveTransformer, self).__init__()
 
         self.d_model = d_model
@@ -22,6 +22,7 @@ class GrooveTransformer(torch.nn.Module):
         self.num_encoder_layers = num_encoder_layers
         self.num_decoder_layers = num_decoder_layers
         self.max_len = max_len
+        self.device = device
 
         self.InputLayerEncoder = InputLayer(embedding_size_src,d_model,dropout,max_len)
         self.Encoder = Encoder(d_model, nhead, dim_feedforward, dropout, num_encoder_layers)
@@ -30,9 +31,10 @@ class GrooveTransformer(torch.nn.Module):
         self.Decoder = Decoder(d_model, nhead, dim_feedforward, dropout, num_decoder_layers)
         self.OutputLayer = OutputLayer(embedding_size_tgt,d_model)
 
-
     def forward(self, src, tgt=None, only_encoder=False, only_decoder=False):
-        mask = get_tgt_mask(self.max_len)
+        # src Nx32xembedding_size_src
+        # tgt Nx32xembedding_size_tgt
+        mask = get_tgt_mask(self.max_len).to(self.device)
 
         if only_encoder:
             x = self.InputLayerEncoder(src)
@@ -48,10 +50,10 @@ class GrooveTransformer(torch.nn.Module):
             return out
 
         # encoder-decoder implementation
-        x = self.InputLayerEncoder(src)
-        y = self.InputLayerDecoder(tgt)
-        memory = self.Encoder(x)
-        out = self.Decoder(y, memory, tgt_mask=mask)
-        out = self.OutputLayer(out)
+        x = self.InputLayerEncoder(src) # Nx32xd_model
+        y = self.InputLayerDecoder(tgt) # Nx32xd_model
+        memory = self.Encoder(x)        # Nx32xd_model
+        out = self.Decoder(y, memory, tgt_mask=mask) #Nx32xd_model
+        out = self.OutputLayer(out) #(Nx32xd_model,Nx32xd_model,Nx32xd_model)
 
         return out
