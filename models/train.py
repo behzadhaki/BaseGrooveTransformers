@@ -1,114 +1,119 @@
-import torch
 import sys
+from torch.utils.data import DataLoader
+import os
+import torch
 
 sys.path.append('../../preprocessed_dataset/')
-sys.path.append('../../TransformerGrooveInfilling/model/')
+sys.path.append('../../TransformerGrooveTap2Drum/model/')
 
-from Subset_Creators.subsetters import GrooveMidiSubsetter
-from dataset_loader import GrooveMidiDataset
-
-from torch.utils.data import DataLoader
+import data_loader
 from transformer import GrooveTransformer
-from io_layers import InputLayer,OutputLayer
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-filters = {"beat_type": ["beat"], "time_signature": ["4-4"], "master_id": ["drummer9/session1/9"]}
-
-# LOAD SMALL TRAIN SUBSET
-pickle_source_path = '../../preprocessed_dataset/datasets_extracted_locally/GrooveMidi/hvo_0.4.2' \
-                     '/Processed_On_17_05_2021_at_22_32_hrs '
-subset_name = 'GrooveMIDI_processed_train'
-metadata_csv_filename = 'metadata.csv'
-hvo_pickle_filename = 'hvo_sequence_data.obj'
-
-gmd_subsetter = GrooveMidiSubsetter(pickle_source_path=pickle_source_path, subset=subset_name,
-                                    hvo_pickle_filename=hvo_pickle_filename, list_of_filter_dicts_for_subsets=[filters])
-
-_, subset_list = gmd_subsetter.create_subsets()
-
-subset_info = {"pickle_source_path": pickle_source_path, "subset": subset_name, "metadata_csv_filename":
-    metadata_csv_filename, "hvo_pickle_filename": hvo_pickle_filename, "filters": filters}
-
-mso_parameters = {"sr": 44100, "n_fft": 1024, "win_length": 1024, "hop_length": 441, "n_bins_per_octave": 16,
-                  "n_octaves": 9, "f_min": 40, "mean_filter_size": 22}
-
-voices_parameters = {"voice_idx": [2],  # closed hihat
-                     "min_n_voices_to_remove": 1,
-                     "max_n_voices_to_remove": 1,
-                     "prob": [1],
-                     "k": 1}
-
-train_data = GrooveMidiDataset(subset=subset_list[0], subset_info=subset_info, mso_parameters=mso_parameters,
-                               max_aug_items=100, voices_parameters=voices_parameters,
-                               sf_path="../../TransformerGrooveInfilling/soundfonts/filtered_soundfonts/", max_n_sf=1)
-
-print("data len", train_data.__len__())
-
-train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
-
-# TRANSFORMER MODEL PARAMETERS
-d_model = 128
-nhead = 4
-dim_feedforward = d_model * 10
-dropout = 0.1
-num_encoder_layers = 6
-num_decoder_layers = 6
-max_len = 32
-
-embedding_size_in = 16
-embedding_size_out = 27
-
-TM = GrooveTransformer(d_model, nhead, dim_feedforward, dropout, num_encoder_layers,
-                 num_decoder_layers, max_len).to(device)
-
-IL_Encoder = InputLayer(embedding_size_in, d_model, dropout, max_len)
-IL_Decoder = InputLayer(embedding_size_out, d_model, dropout, max_len)
-OL = OutputLayer(embedding_size_out, d_model)
-
-# TRAINING PARAMETERS
-learning_rate = 1e-3
-batch_size = 64
-epochs = 5
-
-loss_fn = torch.nn.CrossEntropyLoss()  # cambiar
-optimizer = torch.optim.SGD(TM.parameters(), lr=learning_rate)  # cambiar
+from Subset_Creators.subsetters import GrooveMidiSubsetter
 
 
-def train_loop(dataloader, model, loss_fn, optimizer):
+def calculate_loss(prediction, y, bce_fn, mse_fn):
+    div = int(y.shape[2] / 3)
+    y_h, y_v, y_o = torch.split(y, div, 2)  # split in voices
+    pred_h, pred_v, pred_o = prediction
+
+    bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
+    bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
+    bce_hits = bce_h_sum_voices.mean()
+    print(bce_hits)
+
+    _h = torch.sigmoid(pred_h)
+    h = torch.where(_h > 0.5, 1, 0)
+
+    print("after sigmoid", _h[:, :, 0])
+    print("target hits", y_h[:, :, 0])
+    print("prediction hits", h[:, :, 0])
+
+    mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
+    mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
+    mse_velocities = mse_v_sum_voices.mean()
+
+    print("target velocities", y_v[:, :, 0])
+    print("prediction velocities", pred_v[:, :, 0])
+
+    mse_o = mse_fn(pred_o, y_o)
+    mse_o_sum_voices = torch.sum(mse_o, dim=2)
+    mse_offsets = mse_o_sum_voices.mean()
+
+    print("target offsets", y_o[:, :, 0])
+    print("prediction offsets", pred_o[:, :, 0])
+
+    return bce_hits + mse_velocities + mse_offsets
+
+
+def initialize_model(model_params, training_params, cp_info, load_from_checkpoint=False):
+    groove_transformer = GrooveTransformer(model_params['d_model'], model_params['embedding_size_src'],
+                                           model_params['embedding_size_tgt'], model_params['n_heads'],
+                                           model_params['dim_feedforward'], model_params['dropout'],
+                                           model_params['num_encoder_layers'], model_params['num_decoder_layers'],
+                                           model_params['max_len'], model_params['device'])
+
+    groove_transformer.to(model_params['device'])
+    sgd_optimizer = torch.optim.SGD(groove_transformer.parameters(), lr=training_params['learning_rate'])
+    epoch = 0
+
+    if load_from_checkpoint:
+        last_checkpoint = 0
+        for root, dirs, files in os.walk(cp_info['checkpoint_path']):
+            for name in files:
+                if name.startswith('transformer'):
+                    checkpoint_epoch = int(name.split('-')[-1])
+                    last_checkpoint = checkpoint_epoch if checkpoint_epoch > last_checkpoint else last_checkpoint
+
+        if last_checkpoint > 0:
+            path = cp_info['checkpoint_save_str'].format(last_checkpoint)
+            checkpoint = torch.load(path)
+            groove_transformer.load_state_dict(checkpoint['model_state_dict'])
+            sgd_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch = checkpoint['epoch']
+
+    return groove_transformer, sgd_optimizer, epoch
+
+
+def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save_epoch, cp_info, device):
     size = len(dataloader.dataset)
-    for batch, (X, y, idx) in enumerate(dataloader):
-        print(X.shape, y.shape)  # da Nx32xembedding_size
-        X = X.permute(1, 0, 2)  # reorder dimensions to 32xNx embedding_size
-        y = y.permute(1, 0, 2)  # reorder dimensions
+    for batch, (x, y, idx) in enumerate(dataloader):
+
+        save = (epoch % save_epoch == 0)
+        x = x.to(device)
+        y = y.to(device)
+
+        # print(x.shape, y.shape)  # N x time_steps x embedding_size
 
         # Compute prediction and loss
-
         # y_shifted
-        y_s = torch.zeros([1, y.shape[1], y.shape[2]])
-        y_s = torch.cat((y_s, y[:-1, :, :]), dim=0)
+        y_s = torch.zeros([y.shape[0], 1, y.shape[2]]).to(device)
+        y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
 
-        X = IL_Encoder(X)
-        y_s = IL_Decoder(y_s)
-        pred = model(X, y_s)
-        pred = OL(pred)
-
-        # TODO sum 3 different losses
-        loss = loss_fn(pred, y)
+        pred = groove_transformer(x, y_s)
+        loss = loss_fn(pred, y, bce_fn, mse_fn)
 
         # Backpropagation
-        optimizer.zero_grad()
+        opt.zero_grad()
         loss.backward()
-        optimizer.step()
+        opt.step()
 
         if batch % 100 == 0:
-            loss, current = loss.item(), batch * len(X)
+            loss, current = loss.item(), batch * len(x)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
+        if save:
+            checkpoint_save_path = cp_info['checkpoint_save_str'].format(str(epoch))
+            torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
+                        'optimizer_state_dict': opt.state_dict(), 'loss': loss}, checkpoint_save_path)
 
-if __name__ == "__main__":
-    epochs = 10
-    for t in range(epochs):
-        print(f"Epoch {t + 1}\n-------------------------------")
-        train_loop(train_dataloader, TM, loss_fn, optimizer)
-        print("Done!")
+
+def load_dataset(subset_info, filters, batch_sz):
+    _, subset_list = GrooveMidiSubsetter(pickle_source_path=subset_info["pickle_source_path"],
+                                         subset=subset_info["subset"],
+                                         hvo_pickle_filename=subset_info["hvo_pickle_filename"],
+                                         list_of_filter_dicts_for_subsets=[filters]).create_subsets()
+
+    data = data_loader.GrooveMidiDataset(subset=subset_list[0], subset_info=subset_info)
+    dataloader = DataLoader(data, batch_size=batch_sz, shuffle=True)
+
+    return dataloader

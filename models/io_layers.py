@@ -8,7 +8,7 @@ class InputLayer(torch.nn.Module):
 
         self.Linear = torch.nn.Linear(embedding_size, d_model, bias=True)
         self.ReLU = torch.nn.ReLU()
-        self.PositionalEncoding = PositionalEncoding(d_model, dropout, max_len)
+        self.PositionalEncoding = PositionalEncoding(d_model, max_len, dropout)
 
     def forward(self, src):
         x = self.Linear(src)
