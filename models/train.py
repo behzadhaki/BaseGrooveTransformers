@@ -100,6 +100,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
         if save:
+            if not os.path.exists(cp_info['checkpoint_path']):
+                os.makedirs(cp_info['checkpoint_path'])
             checkpoint_save_path = cp_info['checkpoint_save_str'].format(str(epoch))
             torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                         'optimizer_state_dict': opt.state_dict(), 'loss': loss}, checkpoint_save_path)
