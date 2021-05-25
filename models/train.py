@@ -5,7 +5,6 @@ import torch
 
 sys.path.append('../../preprocessed_dataset/')
 
-import data_loader
 from transformer import GrooveTransformer
 from Subset_Creators.subsetters import GrooveMidiSubsetter
 
@@ -106,13 +105,13 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                         'optimizer_state_dict': opt.state_dict(), 'loss': loss}, checkpoint_save_path)
 
 
-def load_dataset(subset_info, filters, batch_sz):
+def load_dataset(dataset_loader, subset_info, filters, batch_sz):
     _, subset_list = GrooveMidiSubsetter(pickle_source_path=subset_info["pickle_source_path"],
                                          subset=subset_info["subset"],
                                          hvo_pickle_filename=subset_info["hvo_pickle_filename"],
                                          list_of_filter_dicts_for_subsets=[filters]).create_subsets()
 
-    data = data_loader.GrooveMidiDataset(subset=subset_list[0], subset_info=subset_info)
+    data = dataset_loader.GrooveMidiDataset(subset=subset_list[0], subset_info=subset_info)
     dataloader = DataLoader(data, batch_size=batch_sz, shuffle=True)
 
     return dataloader

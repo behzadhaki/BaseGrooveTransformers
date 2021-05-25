@@ -1,5 +1,9 @@
 from train import *
 
+import sys
+sys.path.append('../../TransformerGrooveTap2Drum/model/')
+import data_loader
+
 if __name__ == "__main__":
 
     save_info = {
@@ -48,7 +52,8 @@ if __name__ == "__main__":
 
     model, optimizer, ep = initialize_model(model_parameters, training_parameters, save_info,
                                             load_from_checkpoint=False)
-    dataloader = load_dataset(subset_info, filters, training_parameters['batch_size'])
+    dataloader = load_dataset(data_loader,subset_info, filters, training_parameters[
+        'batch_size'])
 
     epoch_save_div = 100
 
