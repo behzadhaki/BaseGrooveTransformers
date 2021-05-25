@@ -4,7 +4,6 @@ import os
 import torch
 
 sys.path.append('../../preprocessed_dataset/')
-sys.path.append('../../TransformerGrooveTap2Drum/model/')
 
 import data_loader
 from transformer import GrooveTransformer
