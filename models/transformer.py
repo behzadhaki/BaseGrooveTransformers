@@ -43,6 +43,33 @@ class GrooveTransformer(torch.nn.Module):
 
         return out
 
+    def predict(self, src, use_thres = True, thres = 0.5, use_pd = False):
+        with torch.no_grad():
+            n_voices = self.embedding_size_tgt//3
+            tgt = torch.zeros([src.shape[0], self.max_len, self.embedding_size_tgt]).to(self.device)
+
+            for i in range(self.max_len):
+                _h, v, o = self.forward(src, tgt) # Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,
+
+                _h = torch.sigmoid(_h)
+
+                if use_thres:
+                    h = torch.where(_h > thres, 1, 0)
+
+                if use_pd:
+                    pd = torch.rand(_h.shape[0], _h.shape[1])
+                    h = torch.where(_h > pd, 1, 0)
+
+                tgt[:, i, 0: n_voices] = h[:,i,:]
+                tgt[:, i, n_voices: 2 * n_voices ] = v[:,i,:]
+                tgt[:, i, 2 * n_voices:] = o[:,i,:]
+
+                print(tgt)
+
+
+
+        return h,v,o
+
 
 class GrooveTransformerEncoder(torch.nn.Module):
     def __init__(self, d_model, embedding_size_src, embedding_size_mem, nhead, dim_feedforward, dropout,
@@ -67,7 +94,6 @@ class GrooveTransformerEncoder(torch.nn.Module):
 
     def forward(self, src):
         # src Nx32xembedding_size_src
-        # tgt Nx32xembedding_size_tgt
 
         x = self.InputLayerEncoder(src) # Nx32xd_model
         memory = self.Encoder(x)        # Nx32xd_model
