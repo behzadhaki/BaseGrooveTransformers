@@ -53,8 +53,8 @@ print(h[0, 0, :], v[0, 0, :], o[0, 0, :])
 # test encoder only transformer
 print("TEM")
 from transformer import GrooveTransformerEncoder
-embedding_size_mem = 27
-TEM = GrooveTransformerEncoder(d_model, embedding_size_src, embedding_size_mem, nhead, dim_feedforward, dropout,
+embedding_size_tgt = 27
+TEM = GrooveTransformerEncoder(d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward, dropout,
                  num_encoder_layers, num_decoder_layers, max_len, device)
 
 mem_h, mem_v, mem_o = TEM(src)
@@ -64,4 +64,6 @@ print(mem_h.shape, mem_v.shape, mem_o.shape)
 # test predict3
 print("pred")
 pred_h,pred_v,pred_o = TM.predict(src)
+print(pred_h)
+pred_h,pred_v,pred_o = TEM.predict(src)
 print(pred_h)
