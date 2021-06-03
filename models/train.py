@@ -52,6 +52,7 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
 
     groove_transformer.to(model_params['device'])
     sgd_optimizer = torch.optim.SGD(groove_transformer.parameters(), lr=training_params['learning_rate'])
+    scheduler = torch.optim.lr_scheduler.StepLR(sgd_optimizer, 1.0, gamma=0.95) # TODO pass parameters
     epoch = 0
 
     if load_from_checkpoint:
@@ -69,11 +70,13 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
             sgd_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
 
-    return groove_transformer, sgd_optimizer, epoch
+    return groove_transformer, sgd_optimizer, scheduler, epoch
 
 
-def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save_epoch, cp_info, device):
+def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save_epoch, cp_info,
+               device):
     size = len(dataloader.dataset)
+    groove_transformer.train() # train mode
     for batch, (x, y, idx) in enumerate(dataloader):
 
         save = (epoch % save_epoch == 0)
@@ -94,6 +97,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         opt.zero_grad()
         loss.backward()
         opt.step()
+        scheduler.step()
 
         if batch % 100 == 0:
             loss, current = loss.item(), batch * len(x)
