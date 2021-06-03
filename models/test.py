@@ -48,3 +48,13 @@ print("TM")
 h, v, o = TM(src, tgt)
 print(h.shape, v.shape, o.shape)
 print(h[0, 0, :], v[0, 0, :], o[0, 0, :])
+
+
+# test encoder only transformer
+print("TME")
+from transformer import GrooveTransformerEncoder
+TEM = GrooveTransformerEncoder(d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward, dropout,
+                 num_encoder_layers, num_decoder_layers, max_len, device)
+
+out = TEM(src)
+print(out)
