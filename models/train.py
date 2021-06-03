@@ -2,6 +2,7 @@ import sys
 from torch.utils.data import DataLoader
 import os
 import torch
+import wandb
 
 sys.path.append('../../preprocessed_dataset/')
 
@@ -77,12 +78,12 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
                device):
     size = len(dataloader.dataset)
     groove_transformer.train() # train mode
+    save = (epoch % save_epoch == 0)
     for batch, (x, y, idx) in enumerate(dataloader):
 
-        save = (epoch % save_epoch == 0)
         x = x.to(device)
         y = y.to(device)
-
+        # print(x)
         # print(x.shape, y.shape)  # N x time_steps x embedding_size
 
         # Compute prediction and loss
@@ -102,13 +103,15 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         if batch % 100 == 0:
             loss, current = loss.item(), batch * len(x)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+            metrics = {'loss': loss}
+            wandb.log(metrics)
 
-        if save:
-            if not os.path.exists(cp_info['checkpoint_path']):
-                os.makedirs(cp_info['checkpoint_path'])
-            checkpoint_save_path = cp_info['checkpoint_save_str'].format(str(epoch))
-            torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
-                        'optimizer_state_dict': opt.state_dict(), 'loss': loss}, checkpoint_save_path)
+    if save:
+        if not os.path.exists(cp_info['checkpoint_path']):
+            os.makedirs(cp_info['checkpoint_path'])
+        checkpoint_save_path = cp_info['checkpoint_save_str'].format(str(epoch))
+        torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
+                    'optimizer_state_dict': opt.state_dict(), 'loss': loss}, os.path.join(wandb.run.dir, "transformer-{}.ckpt".format(epoch)))  # checkpoint_save_path)
 
 
 def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={}):
@@ -117,7 +120,7 @@ def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={})
                                          hvo_pickle_filename=subset_info["hvo_pickle_filename"],
                                          list_of_filter_dicts_for_subsets=[filters]).create_subsets()
 
-    data = Dataset(subset=subset_list[0], subset_info=subset_info,**dataset_parameters)
+    data = Dataset(subset=subset_list[0], subset_info=subset_info, **dataset_parameters)
     dataloader = DataLoader(data, batch_size=batch_sz, shuffle=True)
 
     return dataloader
