@@ -109,7 +109,7 @@ class GrooveTransformerEncoder(torch.nn.Module):
             tgt = torch.zeros([src.shape[0], self.max_len, self.embedding_size_tgt]).to(self.device)
 
             for i in range(self.max_len):
-                _h, v, o = self.forward(src) # Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,
+                _h, v, o = self.forward(src) # Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,Nx32xembedding_size_src/3
 
                 _h = torch.sigmoid(_h)
 
