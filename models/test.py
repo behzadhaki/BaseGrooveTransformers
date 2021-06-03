@@ -51,10 +51,11 @@ print(h[0, 0, :], v[0, 0, :], o[0, 0, :])
 
 
 # test encoder only transformer
-print("TME")
+print("TEM")
 from transformer import GrooveTransformerEncoder
-TEM = GrooveTransformerEncoder(d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward, dropout,
+embedding_size_mem = 27
+TEM = GrooveTransformerEncoder(d_model, embedding_size_src, embedding_size_mem, nhead, dim_feedforward, dropout,
                  num_encoder_layers, num_decoder_layers, max_len, device)
 
-out = TEM(src)
-print(out)
+mem_h, mem_v, mem_o = TEM(src)
+print(mem_h.shape, mem_v.shape, mem_o.shape)
