@@ -30,13 +30,8 @@ class GrooveTransformer(torch.nn.Module):
         self.Decoder = Decoder(d_model, nhead, dim_feedforward, dropout, num_decoder_layers)
         self.OutputLayer = OutputLayer(embedding_size_tgt,d_model)
 
-        #self.init_weights()
-
-    #def init_weights(self):
-    #    initrange = 0.1
-    #    self.Encoder.weight.data.uniform_(-initrange, initrange)
-    #    self.Decoder.bias.data.zero_()
-    #    self.Decoder.weight.data.uniform_(-initrange, initrange)
+        self.InputLayerEncoder.init_weights()
+        self.OutputLayer.init_weights()
 
     def forward(self, src, tgt):
         # src Nx32xembedding_size_src
@@ -96,13 +91,8 @@ class GrooveTransformerEncoder(torch.nn.Module):
         self.Encoder = Encoder(d_model, nhead, dim_feedforward, dropout, num_encoder_layers)
         self.OutputLayer = OutputLayer(embedding_size_tgt,d_model)
 
-    #    self.init_weights()
-
-    #def init_weights(self):
-    #    initrange = 0.1
-    #    self.Encoder.weight.data.uniform_(-initrange, initrange)
-    #    self.Decoder.bias.data.zero_()
-    #    self.Decoder.weight.data.uniform_(-initrange, initrange)
+        self.InputLayerEncoder.init_weights()
+        self.OutputLayer.init_weights()
 
     def forward(self, src):
         # src Nx32xembedding_size_src
