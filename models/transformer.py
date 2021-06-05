@@ -47,20 +47,25 @@ class GrooveTransformer(torch.nn.Module):
 
     def predict(self, src, use_thres=True, thres=0.5, use_pd=False):
         self.eval()
+
         with torch.no_grad():
             n_voices = self.embedding_size_tgt // 3
-            tgt = torch.zeros([src.shape[0], self.max_len + 1, self.embedding_size_tgt]).to(self.device)
+            mask = get_tgt_mask(self.max_len).to(self.device)
+
+            # encoder
+            x = self.InputLayerEncoder(src)  # Nx32xd_model
+            memory = self.Encoder(x)  # Nx32xd_model
+
+            # init shifted target
+            tgt_shift = torch.zeros([src.shape[0], self.max_len + 1, self.embedding_size_tgt]).to(self.device)
 
             for i in range(self.max_len):
-                # FIXME DONT USE FORWARD METHOD, use encoder once
-                #         x = self.InputLayerEncoder(src) # Nx32xd_model
-                #         y = self.InputLayerDecoder(tgt) # Nx32xd_model
-                #         memory = self.Encoder(x)        # Nx32xd_model
+                # decoder
+                y_shift = self.InputLayerDecoder(tgt_shift[:, :-1, :])
+                out = self.Decoder(y_shift, memory, tgt_mask=mask)  # Nx32xd_model
+                _h, v, o = self.OutputLayer(out)
 
-                # FIXME
-                _h, v, o = self.forward(src, tgt[:, :-1, :])  # Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,
-                # Nx32xembedding_size_src/3,
-
+                # hits output norm
                 _h = torch.sigmoid(_h)
 
                 if use_thres:
@@ -69,10 +74,19 @@ class GrooveTransformer(torch.nn.Module):
                 if use_pd:
                     pd = torch.rand(_h.shape[0], _h.shape[1])
                     h = torch.where(_h > pd, 1, 0)
-                # FIXME
-                tgt[:, i + 1, 0: n_voices] = h[:, i, :]
-                tgt[:, i + 1, n_voices: 2 * n_voices] = v[:, i, :]
-                tgt[:, i + 1, 2 * n_voices:] = o[:, i, :]
+
+                tgt_shift[:, i + 1, 0: n_voices] = h[:, i, :]
+                tgt_shift[:, i + 1, n_voices: 2 * n_voices] = v[:, i, :]
+                tgt_shift[:, i + 1, 2 * n_voices:] = o[:, i, :]
+
+            # undo the shifting
+            tgt = tgt_shift[:, 1:, :]
+
+            # reshape
+            out = tgt.reshape([tgt.shape[0], tgt.shape[1], 3, tgt.shape[2] // 3]).to(self.device)
+            h = out[:, :, 0, :]
+            v = out[:, :, 1, :]
+            o = out[:, :, 2, :]
 
         return h, v, o
 
@@ -113,7 +127,6 @@ class GrooveTransformerEncoder(torch.nn.Module):
 
     def predict(self, src, use_thres=True, thres=0.5, use_pd=False):
         self.eval()
-        # FIXME
         with torch.no_grad():
             _h, v, o = self.forward(
                 src)  # Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,Nx32xembedding_size_src/3

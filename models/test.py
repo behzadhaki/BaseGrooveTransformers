@@ -62,7 +62,7 @@ print(mem_h.shape, mem_v.shape, mem_o.shape)
 
 # test predict3
 print("pred")
-pred_h, pred_v, pred_o = TM.predict(src)
-print(pred_h)
-pred_h, pred_v, pred_o = TEM.predict(src)
-print(pred_h)
+pred_h,pred_v,pred_o = TM.predict(src)
+print(pred_h.shape)
+pred_h,pred_v,pred_o  = TEM.predict(src)
+print(pred_h.shape)
