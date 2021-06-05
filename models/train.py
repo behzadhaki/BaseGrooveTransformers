@@ -3,11 +3,10 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import wandb
-
-sys.path.append('../../preprocessed_dataset/')
-
 from models.transformer import GrooveTransformer
 from Subset_Creators.subsetters import GrooveMidiSubsetter
+
+sys.path.append('../../preprocessed_dataset/')
 
 
 def calculate_loss(prediction, y, bce_fn, mse_fn):
@@ -84,8 +83,6 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
 
         x = x.to(device)
         y = y.to(device)
-        # print(x)
-        # print(x.shape, y.shape)  # N x time_steps x embedding_size
 
         # Compute prediction and loss
         # y_shifted
@@ -98,8 +95,9 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         # Backpropagation
         opt.zero_grad()
         loss.backward()
-        # FIXME remove optimizer?
-        # opt.step()
+
+        # update optimizer and learning rate scheduler
+        opt.step()
         scheduler.step()
 
         if batch % 100 == 0:
