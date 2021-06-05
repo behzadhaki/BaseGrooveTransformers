@@ -1,11 +1,9 @@
 import torch
 import math
+import numpy as np
 import sys
 
 sys.path.append('../../hvo_sequence/')
-
-import numpy as np
-
 from hvo_sequence.hvo_seq import HVO_Sequence
 from hvo_sequence.drum_mappings import ROLAND_REDUCED_MAPPING
 

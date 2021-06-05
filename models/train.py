@@ -6,7 +6,7 @@ import wandb
 
 sys.path.append('../../preprocessed_dataset/')
 
-from transformer import GrooveTransformer
+from models.transformer import GrooveTransformer
 from Subset_Creators.subsetters import GrooveMidiSubsetter
 
 

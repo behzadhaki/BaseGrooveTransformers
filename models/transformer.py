@@ -1,10 +1,9 @@
 import torch
-# TODO models.
-from encoder import Encoder
-from decoder import Decoder
-from io_layers import InputLayer, OutputLayer
 
-from utils import get_tgt_mask
+from models.encoder import Encoder
+from models.decoder import Decoder
+from models.io_layers import InputLayer, OutputLayer
+from models.utils import get_tgt_mask
 
 
 class GrooveTransformer(torch.nn.Module):
