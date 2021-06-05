@@ -1,6 +1,7 @@
 import torch
 import math
 import sys
+
 sys.path.append('../../hvo_sequence/')
 
 import numpy as np
@@ -62,9 +63,10 @@ def get_tgt_mask(d_model):
     mask = mask.masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
     return mask
 
+
 def convert_pred_to_hvo(pred, tempo=120, time_signature_numerator=4, time_signature_denominator=4,
                         beat_division_factors=[4]):
-    h,v,o = pred
+    h, v, o = pred
 
     hvo_seq = HVO_Sequence(drum_mapping=ROLAND_REDUCED_MAPPING)
     hvo_seq.add_time_signature(0, time_signature_numerator, time_signature_denominator, beat_division_factors)
