@@ -3,10 +3,9 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import wandb
-from models.transformer import GrooveTransformer
-from Subset_Creators.subsetters import GrooveMidiSubsetter
-
+from transformer import GrooveTransformer
 sys.path.append('../../preprocessed_dataset/')
+from Subset_Creators.subsetters import GrooveMidiSubsetter
 
 
 def calculate_loss(prediction, y, bce_fn, mse_fn):
@@ -52,8 +51,8 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
 
     groove_transformer.to(model_params['device'])
     sgd_optimizer = torch.optim.SGD(groove_transformer.parameters(), lr=training_params['learning_rate'])
-    # TODO pass parameters
-    scheduler = torch.optim.lr_scheduler.StepLR(sgd_optimizer, 1.0, gamma=0.95)
+    scheduler = torch.optim.lr_scheduler.StepLR(sgd_optimizer, training_params['lr_scheduler_step_size'],
+                                                gamma=training_params['lr_scheduler_gamma'])
     epoch = 0
 
     if load_from_checkpoint:
