@@ -1,7 +1,0 @@
-- DONE Add IL & OL inside of Transformer class
-- Predict method -> pass hits through sigmoid function, then sample or threshold
-- Save/load model every 10 epochs
-- Losses -> reduction='none', save per beat and voice to a dataframe (separate also per hvo), sum per examples & average per batch
-- Losses -> Sum per example & average per batch, then add h, v & o
-- Check if new loss calculation makes it run slower on cluster (srun)
-- Run training for 2 hours & check dataframe & model

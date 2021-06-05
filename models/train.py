@@ -3,10 +3,8 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import wandb
-
-sys.path.append('../../preprocessed_dataset/')
-
 from transformer import GrooveTransformer
+sys.path.append('../../preprocessed_dataset/')
 from Subset_Creators.subsetters import GrooveMidiSubsetter
 
 
@@ -53,7 +51,8 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
 
     groove_transformer.to(model_params['device'])
     sgd_optimizer = torch.optim.SGD(groove_transformer.parameters(), lr=training_params['learning_rate'])
-    scheduler = torch.optim.lr_scheduler.StepLR(sgd_optimizer, 1.0, gamma=0.95) # TODO pass parameters
+    scheduler = torch.optim.lr_scheduler.StepLR(sgd_optimizer, training_params['lr_scheduler_step_size'],
+                                                gamma=training_params['lr_scheduler_gamma'])
     epoch = 0
 
     if load_from_checkpoint:
@@ -77,14 +76,12 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save_epoch, cp_info,
                device):
     size = len(dataloader.dataset)
-    groove_transformer.train() # train mode
+    groove_transformer.train()  # train mode
     save = (epoch % save_epoch == 0)
     for batch, (x, y, idx) in enumerate(dataloader):
 
         x = x.to(device)
         y = y.to(device)
-        # print(x)
-        # print(x.shape, y.shape)  # N x time_steps x embedding_size
 
         # Compute prediction and loss
         # y_shifted
@@ -97,6 +94,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         # Backpropagation
         opt.zero_grad()
         loss.backward()
+
+        # update optimizer and learning rate scheduler
         opt.step()
         scheduler.step()
 
@@ -111,7 +110,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
             os.makedirs(cp_info['checkpoint_path'])
         checkpoint_save_path = cp_info['checkpoint_save_str'].format(str(epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
-                    'optimizer_state_dict': opt.state_dict(), 'loss': loss}, os.path.join(wandb.run.dir, "transformer-{}.ckpt".format(epoch)))  # checkpoint_save_path)
+                    'optimizer_state_dict': opt.state_dict(), 'loss': loss},
+                   os.path.join(wandb.run.dir, "transformer-{}.ckpt".format(epoch)))  # checkpoint_save_path)
 
 
 def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={}):

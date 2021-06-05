@@ -10,9 +10,9 @@ class InputLayer(torch.nn.Module):
         self.ReLU = torch.nn.ReLU()
         self.PositionalEncoding = PositionalEncoding(d_model, max_len, dropout)
 
-    def init_weights(self,initrange=0.1):
+    def init_weights(self, initrange=0.1):
         self.Linear.bias.data.zero_()
-        self.Linear.weight.data.uniform_(-initrange,initrange)
+        self.Linear.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, src):
         x = self.Linear(src)
@@ -29,9 +29,9 @@ class OutputLayer(torch.nn.Module):
         self.embedding_size = embedding_size
         self.Linear = torch.nn.Linear(d_model, embedding_size, bias=True)
 
-    def init_weights(self,initrange=0.1):
+    def init_weights(self, initrange=0.1):
         self.Linear.bias.data.zero_()
-        self.Linear.weight.data.uniform_(-initrange,initrange)
+        self.Linear.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, decoder_out):
         y = self.Linear(decoder_out)
