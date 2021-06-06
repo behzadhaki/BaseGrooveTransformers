@@ -16,28 +16,28 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
     bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     bce_hits = bce_h_sum_voices.mean()
-    print(bce_hits)
+    #print(bce_hits)
 
     _h = torch.sigmoid(pred_h)
     h = torch.where(_h > 0.5, 1, 0)
 
-    print("after sigmoid", _h[:, :, 0])
-    print("target hits", y_h[:, :, 0])
-    print("prediction hits", h[:, :, 0])
+    #print("after sigmoid", _h[:, :, 0])
+    #print("target hits", y_h[:, :, 0])
+    #print("prediction hits", h[:, :, 0])
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
 
-    print("target velocities", y_v[:, :, 0])
-    print("prediction velocities", pred_v[:, :, 0])
+    #print("target velocities", y_v[:, :, 0])
+    #print("prediction velocities", pred_v[:, :, 0])
 
     mse_o = mse_fn(pred_o, y_o)
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
     mse_offsets = mse_o_sum_voices.mean()
 
-    print("target offsets", y_o[:, :, 0])
-    print("prediction offsets", pred_o[:, :, 0])
+    #print("target offsets", y_o[:, :, 0])
+    #print("prediction offsets", pred_o[:, :, 0])
 
     return bce_hits + mse_velocities + mse_offsets
 
