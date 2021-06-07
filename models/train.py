@@ -4,6 +4,7 @@ import os
 import torch
 import wandb
 from transformer import GrooveTransformer
+
 sys.path.append('../../preprocessed_dataset/')
 from Subset_Creators.subsetters import GrooveMidiSubsetter
 
@@ -13,32 +14,41 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     pred_h, pred_v, pred_o = prediction
 
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
-    bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
-    bce_hits = bce_h_sum_voices.mean()
+    # bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
+    # bce_hits = bce_h_sum_voices.mean()
     # print(bce_hits)
 
-    _h = torch.sigmoid(pred_h)
-    h = torch.where(_h > 0.5, 1, 0)
-
-    # print("after sigmoid", _h[:, :, 0])
-    # print("target hits", y_h[:, :, 0])
-    # print("prediction hits", h[:, :, 0])
-
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
-    mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
-    mse_velocities = mse_v_sum_voices.mean()
+    # mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
+    # mse_velocities = mse_v_sum_voices.mean()
 
     # print("target velocities", y_v[:, :, 0])
     # print("prediction velocities", pred_v[:, :, 0])
 
     mse_o = mse_fn(pred_o, y_o)
-    mse_o_sum_voices = torch.sum(mse_o, dim=2)
-    mse_offsets = mse_o_sum_voices.mean()
+    # mse_o_sum_voices = torch.sum(mse_o, dim=2)
+    # mse_offsets = mse_o_sum_voices.mean()
 
     # print("target offsets", y_o[:, :, 0])
     # print("prediction offsets", pred_o[:, :, 0])
 
-    return bce_hits + mse_velocities + mse_offsets
+    total_loss = bce_h + mse_v + mse_o
+
+    _h = torch.sigmoid(pred_h)
+    h = torch.where(_h > 0.5, 1, 0)  # batch=64, timesteps=32, n_voices=9
+
+    # print("after sigmoid", _h[:, :, 0])
+    # print("target hits", y_h[:, :, 0])
+    # print("prediction hits", h[:, :, 0])
+
+    h_flat = torch.reshape(h, (h.shape[0], -1))
+    y_h_flat = torch.reshape(y_h, (y_h.shape[0], -1))
+    n_hits = h_flat.shape[-1]
+    hit_accuracy = (torch.eq(h_flat, y_h_flat).sum(axis=-1) / n_hits).mean()
+
+    hit_perplexity = torch.exp(bce_h)
+
+    return total_loss, hit_accuracy.item(), hit_perplexity.item()
 
 
 def initialize_model(model_params, training_params, cp_info, load_from_checkpoint=False):
@@ -92,7 +102,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
 
         pred = groove_transformer(x, y_s)
-        loss = loss_fn(pred, y, bce_fn, mse_fn)
+        loss, training_accuracy, training_perplexity = loss_fn(pred, y, bce_fn, mse_fn)
         # Backpropagation
         opt.zero_grad()
         loss.backward()
@@ -102,17 +112,11 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         scheduler.step()
 
         if batch % 100 == 0:
-            cat_pred = torch.cat(pred, dim=2)
-            # cross_entropy_loss_fn = torch.nn.CrossEntropyLoss()
-            # cross_entropy_loss = cross_entropy_loss_fn(cat_pred, y)
-            # perplexity = torch.exp(cross_entropy_loss).item()
-            perplexity = torch.exp(loss).item()
             loss, current = loss.item(), batch * len(x)
-            training_accuracy = (torch.sum(torch.tensor(cat_pred == y, device=device)) / y.size(0)).item()
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-            print("accuracy:", training_accuracy)
-            print("perplexity: ", perplexity)
-            metrics = {'loss': loss, 'accuracy': training_accuracy, 'perplexity': perplexity}
+            print("hit accuracy:", training_accuracy)
+            print("hit perplexity: ", training_perplexity)
+            metrics = {'loss': loss, 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity}
             wandb.log(metrics)
 
     if save:
@@ -121,7 +125,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         checkpoint_save_path = cp_info['checkpoint_save_str'].format(str(epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss},
-                   os.path.join(wandb.run.dir, "transformer-{}.ckpt".format(epoch)))  # checkpoint_save_path)
+                   checkpoint_save_path)  # os.path.join(wandb.run.dir, "transformer-{}.ckpt".format(epoch)))
 
 
 def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={}):
