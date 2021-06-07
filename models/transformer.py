@@ -3,7 +3,7 @@ import torch
 from models.encoder import Encoder
 from models.decoder import Decoder
 from models.io_layers import InputLayer, OutputLayer
-from models.utils import get_tgt_mask
+from models.utils import get_tgt_mask, get_hits_activation
 
 
 class GrooveTransformer(torch.nn.Module):
@@ -65,15 +65,7 @@ class GrooveTransformer(torch.nn.Module):
                 out = self.Decoder(y_shift, memory, tgt_mask=mask)  # Nx32xd_model
                 _h, v, o = self.OutputLayer(out)
 
-                # hits output norm
-                _h = torch.sigmoid(_h)
-
-                if use_thres:
-                    h = torch.where(_h > thres, 1, 0)
-
-                if use_pd:
-                    pd = torch.rand(_h.shape[0], _h.shape[1])
-                    h = torch.where(_h > pd, 1, 0)
+                h = get_hits_activation(_h, use_thres=use_thres, thres=thres, use_pd=use_pd)
 
                 tgt_shift[:, i + 1, 0: n_voices] = h[:, i, :]
                 tgt_shift[:, i + 1, n_voices: 2 * n_voices] = v[:, i, :]
@@ -131,13 +123,6 @@ class GrooveTransformerEncoder(torch.nn.Module):
             _h, v, o = self.forward(
                 src)  # Nx32xembedding_size_src/3,Nx32xembedding_size_src/3,Nx32xembedding_size_src/3
 
-            _h = torch.sigmoid(_h)
-
-            if use_thres:
-                h = torch.where(_h > thres, 1, 0)
-
-            if use_pd:
-                pd = torch.rand(_h.shape[0], _h.shape[1])
-                h = torch.where(_h > pd, 1, 0)
+            h = get_hits_activation(_h, use_thres=use_thres, thres=thres, use_pd=use_pd)
 
         return h, v, o

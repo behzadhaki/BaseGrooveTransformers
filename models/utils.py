@@ -61,6 +61,18 @@ def get_tgt_mask(d_model):
     mask = mask.masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
     return mask
 
+def get_hits_activation(_h, use_thres=True, thres=0.5, use_pd=False):
+
+    _h = torch.sigmoid(_h)
+
+    if use_thres:
+        h = torch.where(_h > thres, 1, 0)
+
+    if use_pd:
+        pd = torch.rand(_h.shape[0], _h.shape[1])
+        h = torch.where(_h > pd, 1, 0)
+
+    return h
 
 def convert_pred_to_hvo(pred, tempo=120, time_signature_numerator=4, time_signature_denominator=4,
                         beat_division_factors=[4]):
