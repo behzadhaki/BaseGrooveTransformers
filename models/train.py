@@ -9,35 +9,34 @@ from Subset_Creators.subsetters import GrooveMidiSubsetter
 
 
 def calculate_loss(prediction, y, bce_fn, mse_fn):
-    div = int(y.shape[2] / 3)
-    y_h, y_v, y_o = torch.split(y, div, 2)  # split in voices
+    y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
     pred_h, pred_v, pred_o = prediction
 
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
     bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     bce_hits = bce_h_sum_voices.mean()
-    #print(bce_hits)
+    # print(bce_hits)
 
     _h = torch.sigmoid(pred_h)
     h = torch.where(_h > 0.5, 1, 0)
 
-    #print("after sigmoid", _h[:, :, 0])
-    #print("target hits", y_h[:, :, 0])
-    #print("prediction hits", h[:, :, 0])
+    # print("after sigmoid", _h[:, :, 0])
+    # print("target hits", y_h[:, :, 0])
+    # print("prediction hits", h[:, :, 0])
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
 
-    #print("target velocities", y_v[:, :, 0])
-    #print("prediction velocities", pred_v[:, :, 0])
+    # print("target velocities", y_v[:, :, 0])
+    # print("prediction velocities", pred_v[:, :, 0])
 
     mse_o = mse_fn(pred_o, y_o)
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
     mse_offsets = mse_o_sum_voices.mean()
 
-    #print("target offsets", y_o[:, :, 0])
-    #print("prediction offsets", pred_o[:, :, 0])
+    # print("target offsets", y_o[:, :, 0])
+    # print("prediction offsets", pred_o[:, :, 0])
 
     return bce_hits + mse_velocities + mse_offsets
 
@@ -50,8 +49,10 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
                                            model_params['max_len'], model_params['device'])
 
     groove_transformer.to(model_params['device'])
-    sgd_optimizer = torch.optim.SGD(groove_transformer.parameters(), lr=training_params['learning_rate'])
-    scheduler = torch.optim.lr_scheduler.StepLR(sgd_optimizer, training_params['lr_scheduler_step_size'],
+    optimizer = torch.optim.Adam(groove_transformer.parameters(), lr=training_params['learning_rate']) if \
+        model_params['optimizer'] == 'adam' else torch.optim.SGD(groove_transformer.parameters(),
+                                                                 lr=training_params['learning_rate'])
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, training_params['lr_scheduler_step_size'],
                                                 gamma=training_params['lr_scheduler_gamma'])
     epoch = 0
 
@@ -67,10 +68,10 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
             path = cp_info['checkpoint_save_str'].format(last_checkpoint)
             checkpoint = torch.load(path)
             groove_transformer.load_state_dict(checkpoint['model_state_dict'])
-            sgd_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']
 
-    return groove_transformer, sgd_optimizer, scheduler, epoch
+    return groove_transformer, optimizer, scheduler, epoch
 
 
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save_epoch, cp_info,
@@ -78,6 +79,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     save = (epoch % save_epoch == 0)
+    loss = 0
+
     for batch, (x, y, idx) in enumerate(dataloader):
 
         x = x.to(device)
@@ -90,7 +93,6 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
 
         pred = groove_transformer(x, y_s)
         loss = loss_fn(pred, y, bce_fn, mse_fn)
-
         # Backpropagation
         opt.zero_grad()
         loss.backward()
@@ -100,9 +102,17 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         scheduler.step()
 
         if batch % 100 == 0:
+            cat_pred = torch.cat(pred, dim=2)
+            # cross_entropy_loss_fn = torch.nn.CrossEntropyLoss()
+            # cross_entropy_loss = cross_entropy_loss_fn(cat_pred, y)
+            # perplexity = torch.exp(cross_entropy_loss).item()
+            perplexity = torch.exp(loss).item()
             loss, current = loss.item(), batch * len(x)
+            training_accuracy = (torch.sum(torch.tensor(cat_pred == y, device=device)) / y.size(0)).item()
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-            metrics = {'loss': loss}
+            print("accuracy:", training_accuracy)
+            print("perplexity: ", perplexity)
+            metrics = {'loss': loss, 'accuracy': training_accuracy, 'perplexity': perplexity}
             wandb.log(metrics)
 
     if save:
