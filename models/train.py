@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import wandb
-from transformer import GrooveTransformer
+from models.transformer import GrooveTransformer
 
 sys.path.append('../../preprocessed_dataset/')
 from Subset_Creators.subsetters import GrooveMidiSubsetter

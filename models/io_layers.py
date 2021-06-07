@@ -1,5 +1,5 @@
 import torch
-from utils import PositionalEncoding
+from models.utils import PositionalEncoding
 
 
 class InputLayer(torch.nn.Module):
