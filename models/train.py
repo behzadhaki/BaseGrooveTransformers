@@ -3,9 +3,7 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import wandb
-import numpy as np
 from models.transformer import GrooveTransformer
-from models.utils import get_hits_activation, convert_pred_to_hvo
 
 sys.path.append('../../preprocessed_dataset/')
 from Subset_Creators.subsetters import GrooveMidiSubsetter
