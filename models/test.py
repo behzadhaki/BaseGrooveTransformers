@@ -60,7 +60,7 @@ TEM = GrooveTransformerEncoder(d_model, embedding_size_src, embedding_size_tgt, 
 mem_h, mem_v, mem_o = TEM(src)
 print(mem_h.shape, mem_v.shape, mem_o.shape)
 
-# test predict3
+# test predict
 print("pred")
 pred_h,pred_v,pred_o = TM.predict(src)
 print(pred_h.shape)
