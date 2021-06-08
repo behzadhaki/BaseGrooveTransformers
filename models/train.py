@@ -3,7 +3,9 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import wandb
+import numpy as np
 from models.transformer import GrooveTransformer
+from models.utils import get_hits_activation, convert_pred_to_hvo
 
 sys.path.append('../../preprocessed_dataset/')
 from Subset_Creators.subsetters import GrooveMidiSubsetter
@@ -16,30 +18,19 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
     # bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     # bce_hits = bce_h_sum_voices.mean()
-    # print(bce_hits)
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     # mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     # mse_velocities = mse_v_sum_voices.mean()
 
-    # print("target velocities", y_v[:, :, 0])
-    # print("prediction velocities", pred_v[:, :, 0])
-
     mse_o = mse_fn(pred_o, y_o)
     # mse_o_sum_voices = torch.sum(mse_o, dim=2)
     # mse_offsets = mse_o_sum_voices.mean()
-
-    # print("target offsets", y_o[:, :, 0])
-    # print("prediction offsets", pred_o[:, :, 0])
 
     total_loss = bce_h + mse_v + mse_o
 
     _h = torch.sigmoid(pred_h)
     h = torch.where(_h > 0.5, 1, 0)  # batch=64, timesteps=32, n_voices=9
-
-    # print("after sigmoid", _h[:, :, 0])
-    # print("target hits", y_h[:, :, 0])
-    # print("prediction hits", h[:, :, 0])
 
     h_flat = torch.reshape(h, (h.shape[0], -1))
     y_h_flat = torch.reshape(y_h, (y_h.shape[0], -1))
@@ -84,6 +75,18 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
     return groove_transformer, optimizer, scheduler, epoch
 
 
+def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={}):
+    _, subset_list = GrooveMidiSubsetter(pickle_source_path=subset_info["pickle_source_path"],
+                                         subset=subset_info["subset"],
+                                         hvo_pickle_filename=subset_info["hvo_pickle_filename"],
+                                         list_of_filter_dicts_for_subsets=[filters]).create_subsets()
+
+    data = Dataset(subset=subset_list[0], subset_info=subset_info, **dataset_parameters)
+    dataloader = DataLoader(data, batch_size=batch_sz, shuffle=True)
+
+    return dataloader
+
+
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save_epoch, cp_info,
                device):
     size = len(dataloader.dataset)
@@ -103,6 +106,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
 
         pred = groove_transformer(x, y_s)
         loss, training_accuracy, training_perplexity = loss_fn(pred, y, bce_fn, mse_fn)
+
         # Backpropagation
         opt.zero_grad()
         loss.backward()
@@ -126,15 +130,3 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss},
                    checkpoint_save_path)  # os.path.join(wandb.run.dir, "transformer-{}.ckpt".format(epoch)))
-
-
-def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={}):
-    _, subset_list = GrooveMidiSubsetter(pickle_source_path=subset_info["pickle_source_path"],
-                                         subset=subset_info["subset"],
-                                         hvo_pickle_filename=subset_info["hvo_pickle_filename"],
-                                         list_of_filter_dicts_for_subsets=[filters]).create_subsets()
-
-    data = Dataset(subset=subset_list[0], subset_info=subset_info, **dataset_parameters)
-    dataloader = DataLoader(data, batch_size=batch_sz, shuffle=True)
-
-    return dataloader
