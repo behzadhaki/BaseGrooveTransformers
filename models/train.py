@@ -5,10 +5,11 @@ import torch
 import wandb
 import numpy as np
 from models.transformer import GrooveTransformer
+from models.utils import get_hits_activation, convert_pred_to_hvo
 
 sys.path.append('../../preprocessed_dataset/')
 from Subset_Creators.subsetters import GrooveMidiSubsetter
-from models.utils import get_hits_activation, convert_pred_to_hvo
+
 
 def calculate_loss(prediction, y, bce_fn, mse_fn):
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
@@ -85,14 +86,14 @@ def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={})
 
     return dataloader
 
+
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save_epoch, cp_info,
-               device, evaluator):
+               device):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     save = (epoch % save_epoch == 0)
     loss = 0
 
-    #batch_pred = np.array([])
     for batch, (x, y, idx) in enumerate(dataloader):
 
         x = x.to(device)
@@ -105,11 +106,6 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
 
         pred = groove_transformer(x, y_s)
         loss, training_accuracy, training_perplexity = loss_fn(pred, y, bce_fn, mse_fn)
-
-        _h,v,o = pred
-        h = get_hits_activation(_h)
-        hvo_pred = convert_pred_to_hvo((h,v,o))
-        batch_pred = np.append(batch_pred,hvo_pred)
 
         # Backpropagation
         opt.zero_grad()
@@ -126,8 +122,6 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
             print("hit perplexity: ", training_perplexity)
             metrics = {'loss': loss, 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity}
             wandb.log(metrics)
-
-    # evaluator.add_predictions(batch_pred)
 
     if save:
         if not os.path.exists(cp_info['checkpoint_path']):
