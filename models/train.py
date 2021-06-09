@@ -41,7 +41,12 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     return total_loss, hit_accuracy.item(), hit_perplexity.item()
 
 
-def initialize_model(model_params, training_params, cp_info, load_from_checkpoint=False):
+def initialize_model(params, load_from_checkpoint=False):
+
+    model_params = params["model"]
+    training_params = params["training"]
+    cp_info = params["cp_paths"]
+
     groove_transformer = GrooveTransformer(model_params['d_model'], model_params['embedding_size_src'],
                                            model_params['embedding_size_tgt'], model_params['n_heads'],
                                            model_params['dim_feedforward'], model_params['dropout'],
