@@ -5,9 +5,6 @@ import torch
 import wandb
 from models.transformer import GrooveTransformer
 
-sys.path.append('../../preprocessed_dataset/')
-from Subset_Creators.subsetters import GrooveMidiSubsetter
-
 
 def calculate_loss(prediction, y, bce_fn, mse_fn):
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
@@ -73,23 +70,9 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
     return groove_transformer, optimizer, scheduler, epoch
 
 
-def load_dataset(Dataset, subset_info, filters, batch_sz, dataset_parameters={}):
-    _, subset_list = GrooveMidiSubsetter(pickle_source_path=subset_info["pickle_source_path"],
-                                         subset=subset_info["subset"],
-                                         hvo_pickle_filename=subset_info["hvo_pickle_filename"],
-                                         list_of_filter_dicts_for_subsets=[filters]).create_subsets()
-
-    data = Dataset(subset=subset_list[0], subset_info=subset_info, **dataset_parameters)
-    dataloader = DataLoader(data, batch_size=batch_sz, shuffle=True)
-
-    return dataloader
-
-
-def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save_epoch, cp_info,
-               device):
+def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save, device):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
-    save = (epoch % save_epoch == 0)
     loss = 0
 
     for batch, (x, y, idx) in enumerate(dataloader):
@@ -122,9 +105,10 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
             wandb.log(metrics)
 
     if save:
-        if not os.path.exists(cp_info['checkpoint_path']):
-            os.makedirs(cp_info['checkpoint_path'])
-        checkpoint_save_path = cp_info['checkpoint_save_str'].format(str(epoch))
+        # if we save the model in the wandb dir, it will be uploaded after training
+        save_path = os.path.join(wandb.run.dir, "saved_models")
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss},
-                   checkpoint_save_path)  # os.path.join(wandb.run.dir, "transformer-{}.ckpt".format(epoch)))
+                   os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch)))
