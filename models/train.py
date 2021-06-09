@@ -34,6 +34,10 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
 
     hit_perplexity = torch.exp(bce_h)
 
+    # Log individual losses for hits, velocities and offsets
+    individual_losses = {'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o}
+    wandb.log(individual_losses)
+
     return total_loss, hit_accuracy.item(), hit_perplexity.item()
 
 
