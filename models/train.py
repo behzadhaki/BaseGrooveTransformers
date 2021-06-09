@@ -70,7 +70,7 @@ def initialize_model(model_params, training_params, cp_info, load_from_checkpoin
     return groove_transformer, optimizer, scheduler, epoch
 
 
-def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save, device, wandb_run):
+def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save, device):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
@@ -111,4 +111,4 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
             os.makedirs(save_path)
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss},
-                   os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb_run, epoch)))
+                   os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch)))
