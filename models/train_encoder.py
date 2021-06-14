@@ -31,9 +31,9 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     n_hits = h_flat.shape[-1]
     hit_accuracy = (torch.eq(h_flat, y_h_flat).sum(axis=-1) / n_hits).mean()
 
-    hit_perplexity = torch.exp(bce_h)
+    hit_perplexity = torch.exp(bce_hits)
 
-    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_hits.item(), mse_velocities.item(), mse_offsets.item()
+    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_hits, mse_velocities, mse_offsets
 
 
 def initialize_model(params):
