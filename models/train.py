@@ -33,11 +33,7 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
 
     hit_perplexity = torch.exp(bce_h)
 
-    # Log individual losses for hits, velocities and offsets
-    individual_losses = {'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o}
-    wandb.log(individual_losses)
-
-    return total_loss, hit_accuracy.item(), hit_perplexity.item()
+    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_h.item(), mse_v.item(), mse_o.item()
 
 
 def initialize_model(params):
@@ -117,7 +113,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
 
         pred = groove_transformer(x, y_s)
-        loss, training_accuracy, training_perplexity = loss_fn(pred, y, bce_fn, mse_fn)
+        loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn)
 
         # Backpropagation
         opt.zero_grad()
@@ -132,8 +128,12 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
             print("hit accuracy:", training_accuracy)
             print("hit perplexity: ", training_perplexity)
-            metrics = {'loss': loss, 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity}
-            wandb.log(metrics)
+            print("hit bce: ", bce_h)
+            print("velocity mse: ", mse_v)
+            print("offset mse: ", mse_o)
+
+            wandb.log({'loss': loss, 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
+                       'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch, 'batch': batch})
 
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
