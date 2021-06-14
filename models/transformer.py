@@ -97,7 +97,6 @@ class GrooveTransformerEncoder(torch.nn.Module):
         self.max_len = max_len
         self.num_encoder_layers = num_encoder_layers
         self.num_decoder_layers = num_decoder_layers
-        self.max_len = max_len
         self.device = device
 
         self.InputLayerEncoder = InputLayer(embedding_size_src, d_model, dropout, max_len)

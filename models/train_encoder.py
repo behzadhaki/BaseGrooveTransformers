@@ -10,18 +10,18 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     pred_h, pred_v, pred_o = prediction
 
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
-    # bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
-    # bce_hits = bce_h_sum_voices.mean()
+    bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
+    bce_hits = bce_h_sum_voices.mean()
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
-    # mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
-    # mse_velocities = mse_v_sum_voices.mean()
+    mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
+    mse_velocities = mse_v_sum_voices.mean()
 
     mse_o = mse_fn(pred_o, y_o)
-    # mse_o_sum_voices = torch.sum(mse_o, dim=2)
-    # mse_offsets = mse_o_sum_voices.mean()
+    mse_o_sum_voices = torch.sum(mse_o, dim=2)
+    mse_offsets = mse_o_sum_voices.mean()
 
-    total_loss = bce_h + mse_v + mse_o
+    total_loss = bce_hits + mse_velocities + mse_offsets
 
     _h = torch.sigmoid(pred_h)
     h = torch.where(_h > 0.5, 1, 0)  # batch=64, timesteps=32, n_voices=9
@@ -33,7 +33,7 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
 
     hit_perplexity = torch.exp(bce_h)
 
-    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_h.item(), mse_v.item(), mse_o.item()
+    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_hits.item(), mse_velocities.item(), mse_offsets.item()
 
 
 def initialize_model(params):
