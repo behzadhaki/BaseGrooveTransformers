@@ -135,14 +135,14 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         opt.step()
 
         if batch % 1 == 0:
-            loss, current = loss.item(), batch * len(x)
-            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+            current = batch * len(x)
+            print(f"loss: {loss.item():>7f}  [{current:>5d}/{size:>5d}]")
             print("hit accuracy:", training_accuracy)
             print("hit perplexity: ", training_perplexity)
             print("hit bce: ", bce_h)
             print("velocity mse: ", mse_v)
             print("offset mse: ", mse_o)
-            wandb.log({'loss': loss, 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
+            wandb.log({'loss': loss.item(), 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
                        'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch, 'batch': batch})
 
     if save:
@@ -155,3 +155,4 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
 
+    return loss.item()
