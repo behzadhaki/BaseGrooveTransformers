@@ -137,7 +137,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         # update optimizer and learning rate scheduler
         opt.step()
 
-        if batch % 100 == 0:
+        if batch % 1 == 0:
             loss, current = loss.item(), batch * len(x)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
             print("hit accuracy:", training_accuracy)
