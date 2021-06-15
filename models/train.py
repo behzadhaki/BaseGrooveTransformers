@@ -60,8 +60,6 @@ def initialize_model(params):
     optimizer = torch.optim.Adam(groove_transformer.parameters(), lr=training_params['learning_rate']) if \
         model_params['optimizer'] == 'adam' else torch.optim.SGD(groove_transformer.parameters(),
                                                                  lr=training_params['learning_rate'])
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, training_params['lr_scheduler_step_size'],
-                                                gamma=training_params['lr_scheduler_gamma'])
     epoch = 0
 
     if load_model is not None:
@@ -101,13 +99,12 @@ def initialize_model(params):
 
         groove_transformer.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         epoch = checkpoint['epoch']
 
-    return groove_transformer, optimizer, scheduler, epoch
+    return groove_transformer, optimizer, epoch
 
 
-def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save, device,
+def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save, device,
                encoder_only):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
@@ -134,7 +131,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
         # Backpropagation
         loss.backward()
 
-        # update optimizer and learning rate scheduler
+        # update optimizer
         opt.step()
 
         if batch % 1 == 0:
@@ -148,8 +145,6 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
             wandb.log({'loss': loss, 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
                        'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch, 'batch': batch})
 
-    scheduler.step()  # at the end of epoch
-
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
         save_path = os.path.join(wandb.run.dir, "saved_models")
@@ -158,5 +153,5 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
 
         save_filename = os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
-                    'optimizer_state_dict': opt.state_dict(), 'scheduler_state_dict': scheduler.state_dict(),
-                    'loss': loss}, save_filename)
+                    'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
+
