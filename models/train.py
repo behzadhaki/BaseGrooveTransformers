@@ -1,3 +1,4 @@
+# IMPLEMENTATION NOT WORKING, JUST CHKPT FOR THE OLD SCHEDULER IMPL - loss stops decreasing and hits all 0
 import os
 import torch
 import wandb
