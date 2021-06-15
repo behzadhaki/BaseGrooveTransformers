@@ -2,7 +2,7 @@ import os
 import torch
 import wandb
 import re
-from models.transformer import GrooveTransformer
+from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
 
 def calculate_loss(prediction, y, bce_fn, mse_fn):
@@ -10,18 +10,18 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     pred_h, pred_v, pred_o = prediction
 
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
-    # bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
-    # bce_hits = bce_h_sum_voices.mean()
+    bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
+    bce_hits = bce_h_sum_voices.mean()
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
-    # mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
-    # mse_velocities = mse_v_sum_voices.mean()
+    mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
+    mse_velocities = mse_v_sum_voices.mean()
 
     mse_o = mse_fn(pred_o, y_o)
-    # mse_o_sum_voices = torch.sum(mse_o, dim=2)
-    # mse_offsets = mse_o_sum_voices.mean()
+    mse_o_sum_voices = torch.sum(mse_o, dim=2)
+    mse_offsets = mse_o_sum_voices.mean()
 
-    total_loss = bce_h + mse_v + mse_o
+    total_loss = bce_hits + mse_velocities + mse_offsets
 
     _h = torch.sigmoid(pred_h)
     h = torch.where(_h > 0.5, 1, 0)  # batch=64, timesteps=32, n_voices=9
@@ -31,9 +31,9 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     n_hits = h_flat.shape[-1]
     hit_accuracy = (torch.eq(h_flat, y_h_flat).sum(axis=-1) / n_hits).mean()
 
-    hit_perplexity = torch.exp(bce_h)
+    hit_perplexity = torch.exp(bce_hits)
 
-    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_h.item(), mse_v.item(), mse_o.item()
+    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_hits, mse_velocities, mse_offsets
 
 
 def initialize_model(params):
@@ -41,11 +41,20 @@ def initialize_model(params):
     training_params = params["training"]
     load_model = params["load_model"]
 
-    groove_transformer = GrooveTransformer(model_params['d_model'], model_params['embedding_size_src'],
-                                           model_params['embedding_size_tgt'], model_params['n_heads'],
-                                           model_params['dim_feedforward'], model_params['dropout'],
-                                           model_params['num_encoder_layers'], model_params['num_decoder_layers'],
-                                           model_params['max_len'], model_params['device'])
+    if model_params['encoder_only']:
+        groove_transformer = GrooveTransformerEncoder(model_params['d_model'], model_params['embedding_size_src'],
+                                                      model_params['embedding_size_tgt'], model_params['n_heads'],
+                                                      model_params['dim_feedforward'], model_params['dropout'],
+                                                      model_params['num_encoder_layers'],
+                                                      model_params['num_decoder_layers'],
+                                                      model_params['max_len'], model_params['device'])
+    else:
+        groove_transformer = GrooveTransformer(model_params['d_model'],
+                                               model_params['embedding_size_src'],
+                                               model_params['embedding_size_tgt'], model_params['n_heads'],
+                                               model_params['dim_feedforward'], model_params['dropout'],
+                                               model_params['num_encoder_layers'], model_params['num_decoder_layers'],
+                                               model_params['max_len'], model_params['device'])
 
     groove_transformer.to(model_params['device'])
     optimizer = torch.optim.Adam(groove_transformer.parameters(), lr=training_params['learning_rate']) if \
@@ -86,7 +95,8 @@ def initialize_model(params):
         # If restoring from wandb
         elif load_model['location'] == 'wandb':
             model_file = wandb.restore(load_model['file_pattern'].format(load_model['run'],
-                                       load_model['epoch']), run_path=load_model['dir'])
+                                                                         load_model['epoch']),
+                                       run_path=load_model['dir'])
             checkpoint = torch.load(model_file.name)
 
         groove_transformer.load_state_dict(checkpoint['model_state_dict'])
@@ -97,31 +107,35 @@ def initialize_model(params):
     return groove_transformer, optimizer, scheduler, epoch
 
 
-def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save, device):
+def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, scheduler, epoch, save, device,
+               encoder_only):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
 
     for batch, (x, y, idx) in enumerate(dataloader):
 
+        opt.zero_grad()
+
         x = x.to(device)
         y = y.to(device)
 
         # Compute prediction and loss
-        # y_shifted
-        y_s = torch.zeros([y.shape[0], 1, y.shape[2]]).to(device)
-        y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
+        if encoder_only:
+            pred = groove_transformer(x)
+        else:
+            # y_shifted
+            y_s = torch.zeros([y.shape[0], 1, y.shape[2]]).to(device)
+            y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
+            pred = groove_transformer(x, y_s)
 
-        pred = groove_transformer(x, y_s)
         loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn)
 
         # Backpropagation
-        opt.zero_grad()
         loss.backward()
 
         # update optimizer and learning rate scheduler
         opt.step()
-        scheduler.step()
 
         if batch % 100 == 0:
             loss, current = loss.item(), batch * len(x)
@@ -131,9 +145,10 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, sch
             print("hit bce: ", bce_h)
             print("velocity mse: ", mse_v)
             print("offset mse: ", mse_o)
-
             wandb.log({'loss': loss, 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
                        'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch, 'batch': batch})
+
+    scheduler.step()  # at the end of epoch
 
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
