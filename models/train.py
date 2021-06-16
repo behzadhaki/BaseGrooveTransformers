@@ -2,6 +2,7 @@ import os
 import torch
 import wandb
 import re
+import numpy as np
 from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
 
@@ -135,15 +136,17 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         opt.step()
 
         if batch % 1 == 0:
-            current = batch * len(x)
-            print(f"loss: {loss.item():>7f}  [{current:>5d}/{size:>5d}]")
-            print("hit accuracy:", training_accuracy)
-            print("hit perplexity: ", training_perplexity)
-            print("hit bce: ", bce_h.item())
-            print("velocity mse: ", mse_v.item())
-            print("offset mse: ", mse_o.item())
             wandb.log({'loss': loss.item(), 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
                        'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch, 'batch': batch})
+        if batch % 100 == 0:
+            print('=======')
+            current = batch * len(x)
+            print(f"loss: {loss.item():>4f}  [{current:>4d}/{size:>4d}]")
+            print("hit accuracy:", np.round(training_accuracy,4))
+            print("hit perplexity: ", np.round(training_perplexity,4))
+            print("hit bce: ", np.round(bce_h.item(),4))
+            print("velocity mse: ", np.round(mse_v.item(),4))
+            print("offset mse: ", np.round(mse_o.item(),4))
 
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
