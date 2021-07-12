@@ -16,11 +16,11 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
-    mse_velocities = mse_v_sum_voices.mean()
+    mse_velocities = mse_v_sum_voices.mean() * 8.25
 
     mse_o = mse_fn(pred_o, y_o)
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
-    mse_offsets = mse_o_sum_voices.mean()
+    mse_offsets = mse_o_sum_voices.mean() * 37.66
 
     total_loss = bce_hits + mse_velocities + mse_offsets
 
