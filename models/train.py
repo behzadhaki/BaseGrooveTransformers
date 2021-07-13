@@ -5,8 +5,13 @@ import re
 import numpy as np
 from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
+vel_multiplier = 1
+offset_multiplier = 1
 
-def calculate_loss(prediction, y, bce_fn, mse_fn):
+
+def calculate_loss(prediction, y, bce_fn, mse_fn, first_step=False):
+    global vel_multiplier
+    global offset_multiplier
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
     pred_h, pred_v, pred_o = prediction
 
@@ -16,11 +21,17 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
-    mse_velocities = mse_v_sum_voices.mean() * 8.25
+    mse_velocities = mse_v_sum_voices.mean()
+    if first_step:
+        vel_multiplier = bce_hits / mse_velocities
+    mse_velocities = vel_multiplier * mse_velocities
 
     mse_o = mse_fn(pred_o, y_o)
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
-    mse_offsets = mse_o_sum_voices.mean() * 37.66
+    mse_offsets = mse_o_sum_voices.mean()
+    if first_step:
+        offset_multiplier = bce_hits / mse_offsets
+    mse_offsets = offset_multiplier * mse_offsets
 
     total_loss = bce_hits + mse_velocities + mse_offsets
 
@@ -127,7 +138,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
             pred = groove_transformer(x, y_s)
 
-        loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn)
+        first_step = True if (epoch == 1 and batch == 0) else False
+        loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn, first_step)
 
         # Backpropagation
         loss.backward()
@@ -142,11 +154,11 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             print('=======')
             current = batch * len(x)
             print(f"loss: {loss.item():>4f}  [{current:>4d}/{size:>4d}]")
-            print("hit accuracy:", np.round(training_accuracy,4))
-            print("hit perplexity: ", np.round(training_perplexity,4))
-            print("hit bce: ", np.round(bce_h.item(),4))
-            print("velocity mse: ", np.round(mse_v.item(),4))
-            print("offset mse: ", np.round(mse_o.item(),4))
+            print("hit accuracy:", np.round(training_accuracy, 4))
+            print("hit perplexity: ", np.round(training_perplexity, 4))
+            print("hit bce: ", np.round(bce_h.item(), 4))
+            print("velocity mse: ", np.round(mse_v.item(), 4))
+            print("offset mse: ", np.round(mse_o.item(), 4))
 
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
