@@ -106,7 +106,7 @@ def initialize_model(params):
 
 
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save, device,
-               encoder_only):
+               encoder_only, test_inputs=None):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
@@ -157,5 +157,15 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         save_filename = os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
+
+    if test_inputs is not None:
+        test_predictions_h, test_predictions_v, test_predictions_o = groove_transformer.predict(test_inputs,
+                                                                                use_thres=True, thres=0.5)
+        test_predictions = (test_predictions_h.float(), test_predictions_v.float(), test_predictions_o.float())
+        test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
+            loss_fn(test_predictions, test_inputs, bce_fn, mse_fn)
+        wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
+                   'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
+                   'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
 
     return loss.item()
