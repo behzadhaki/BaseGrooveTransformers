@@ -5,22 +5,37 @@ import re
 import numpy as np
 from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
+h_div, v_div, o_div = -1, -1, -1
 
-def calculate_loss(prediction, y, bce_fn, mse_fn):
+
+def calculate_loss(prediction, y, bce_fn, mse_fn, h_loss_multiplier, v_loss_multiplier, o_loss_multiplier):
+    global h_div
+    global v_div
+    global o_div
+
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
     pred_h, pred_v, pred_o = prediction
 
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
     bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     bce_hits = bce_h_sum_voices.mean()
+    if h_div == -1:
+        h_div = bce_hits.item()
+    bce_hits = (bce_hits / h_div) * h_loss_multiplier
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
+    if v_div == -1:
+        v_div = mse_velocities.item()
+    mse_velocities = (mse_velocities / v_div) * v_loss_multiplier
 
     mse_o = mse_fn(pred_o, y_o)
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
     mse_offsets = mse_o_sum_voices.mean()
+    if o_div == -1:
+        o_div = mse_offsets.item()
+    mse_offsets = (mse_offsets / o_div) * o_loss_multiplier
 
     total_loss = bce_hits + mse_velocities + mse_offsets
 
@@ -106,7 +121,7 @@ def initialize_model(params):
 
 
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save, device,
-               encoder_only):
+               encoder_only, test_inputs=None, h_loss_mult=1, v_loss_mult=1, o_loss_mult=1):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
@@ -127,7 +142,9 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
             pred = groove_transformer(x, y_s)
 
-        loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn)
+        loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn,
+                                                                                    h_loss_mult, v_loss_mult,
+                                                                                    o_loss_mult)
 
         # Backpropagation
         loss.backward()
@@ -142,11 +159,11 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             print('=======')
             current = batch * len(x)
             print(f"loss: {loss.item():>4f}  [{current:>4d}/{size:>4d}]")
-            print("hit accuracy:", np.round(training_accuracy,4))
-            print("hit perplexity: ", np.round(training_perplexity,4))
-            print("hit bce: ", np.round(bce_h.item(),4))
-            print("velocity mse: ", np.round(mse_v.item(),4))
-            print("offset mse: ", np.round(mse_o.item(),4))
+            print("hit accuracy:", np.round(training_accuracy, 4))
+            print("hit perplexity: ", np.round(training_perplexity, 4))
+            print("hit bce: ", np.round(bce_h.item(), 4))
+            print("velocity mse: ", np.round(mse_v.item(), 4))
+            print("offset mse: ", np.round(mse_o.item(), 4))
 
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
@@ -157,5 +174,16 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         save_filename = os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
+
+    if test_inputs is not None:
+        test_predictions_h, test_predictions_v, test_predictions_o = groove_transformer.predict(test_inputs,
+                                                                                                use_thres=True,
+                                                                                                thres=0.5)
+        test_predictions = (test_predictions_h.float(), test_predictions_v.float(), test_predictions_o.float())
+        test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
+            loss_fn(test_predictions, test_inputs, bce_fn, mse_fn, h_loss_mult, v_loss_mult, o_loss_mult)
+        wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
+                   'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
+                   'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
 
     return loss.item()
