@@ -143,7 +143,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             pred = groove_transformer(x, y_s)
 
         loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn,
-                                                                                h_loss_mult, v_loss_mult, o_loss_mult)
+                                                                                    h_loss_mult, v_loss_mult,
+                                                                                    o_loss_mult)
 
         # Backpropagation
         loss.backward()
@@ -158,11 +159,11 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             print('=======')
             current = batch * len(x)
             print(f"loss: {loss.item():>4f}  [{current:>4d}/{size:>4d}]")
-            print("hit accuracy:", np.round(training_accuracy,4))
-            print("hit perplexity: ", np.round(training_perplexity,4))
-            print("hit bce: ", np.round(bce_h.item(),4))
-            print("velocity mse: ", np.round(mse_v.item(),4))
-            print("offset mse: ", np.round(mse_o.item(),4))
+            print("hit accuracy:", np.round(training_accuracy, 4))
+            print("hit perplexity: ", np.round(training_perplexity, 4))
+            print("hit bce: ", np.round(bce_h.item(), 4))
+            print("velocity mse: ", np.round(mse_v.item(), 4))
+            print("offset mse: ", np.round(mse_o.item(), 4))
 
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
@@ -176,7 +177,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
 
     if test_inputs is not None:
         test_predictions_h, test_predictions_v, test_predictions_o = groove_transformer.predict(test_inputs,
-                                                                                use_thres=True, thres=0.5)
+                                                                                                use_thres=True,
+                                                                                                thres=0.5)
         test_predictions = (test_predictions_h.float(), test_predictions_v.float(), test_predictions_o.float())
         test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
             loss_fn(test_predictions, test_inputs, bce_fn, mse_fn)
