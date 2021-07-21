@@ -8,7 +8,7 @@ from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 h_div, v_div, o_div = -1, -1, -1
 
 
-def calculate_loss(prediction, y, bce_fn, mse_fn):
+def calculate_loss(prediction, y, bce_fn, mse_fn, h_loss_multiplier, v_loss_multiplier, o_loss_multiplier):
     global h_div
     global v_div
     global o_div
@@ -21,21 +21,21 @@ def calculate_loss(prediction, y, bce_fn, mse_fn):
     bce_hits = bce_h_sum_voices.mean()
     if h_div == -1:
         h_div = bce_hits.item()
-    bce_hits = bce_hits / h_div
+    bce_hits = (bce_hits / h_div) * h_loss_multiplier
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
     if v_div == -1:
         v_div = mse_velocities.item()
-    mse_velocities = mse_velocities / v_div
+    mse_velocities = (mse_velocities / v_div) * v_loss_multiplier
 
     mse_o = mse_fn(pred_o, y_o)
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
     mse_offsets = mse_o_sum_voices.mean()
     if o_div == -1:
         o_div = mse_offsets.item()
-    mse_offsets = mse_offsets / o_div
+    mse_offsets = (mse_offsets / o_div) * o_loss_multiplier
 
     total_loss = bce_hits + mse_velocities + mse_offsets
 
@@ -121,7 +121,7 @@ def initialize_model(params):
 
 
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save, device,
-               encoder_only, test_inputs=None):
+               encoder_only, test_inputs=None, h_loss_mult=1, v_loss_mult=1, o_loss_mult=1):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
@@ -142,7 +142,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             y_s = torch.cat((y_s, y[:, :-1, :]), dim=1).to(device)
             pred = groove_transformer(x, y_s)
 
-        loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn)
+        loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn,
+                                                                                h_loss_mult, v_loss_mult, o_loss_mult)
 
         # Backpropagation
         loss.backward()
