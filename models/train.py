@@ -5,22 +5,37 @@ import re
 import numpy as np
 from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
+h_div, v_div, o_div = -1, -1, -1
+
 
 def calculate_loss(prediction, y, bce_fn, mse_fn):
+    global h_div
+    global v_div
+    global o_div
+
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
     pred_h, pred_v, pred_o = prediction
 
     bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
     bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     bce_hits = bce_h_sum_voices.mean()
+    if h_div == -1:
+        h_div = bce_hits.item()
+    bce_hits = bce_hits / h_div
 
     mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
+    if v_div == -1:
+        v_div = mse_velocities.item()
+    mse_velocities = mse_velocities / v_div
 
     mse_o = mse_fn(pred_o, y_o)
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
     mse_offsets = mse_o_sum_voices.mean()
+    if o_div == -1:
+        o_div = mse_offsets.item()
+    mse_offsets = mse_offsets / o_div
 
     total_loss = bce_hits + mse_velocities + mse_offsets
 

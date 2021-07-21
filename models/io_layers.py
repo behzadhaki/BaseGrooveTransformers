@@ -43,7 +43,7 @@ class OutputLayer(torch.nn.Module):
 
         h = _h
         v = torch.sigmoid(_v)
-        o = torch.sigmoid(_o)
-        # o = torch.tanh(_o) * 0.5
+        # o = torch.sigmoid(_o)
+        o = torch.tanh(_o) * 0.5
 
         return h, v, o
