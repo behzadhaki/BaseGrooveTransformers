@@ -181,7 +181,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                                                                                                 thres=0.5)
         test_predictions = (test_predictions_h.float(), test_predictions_v.float(), test_predictions_o.float())
         test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
-            loss_fn(test_predictions, test_inputs, bce_fn, mse_fn)
+            loss_fn(test_predictions, test_inputs, bce_fn, mse_fn, h_loss_mult, v_loss_mult, o_loss_mult)
         wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                    'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
                    'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
