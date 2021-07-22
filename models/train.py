@@ -176,6 +176,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
 
     if test_inputs is not None and test_gt is not None:
+        test_inputs = test_inputs.to(device)
+        test_gt = test_gt.to(device)
         test_predictions_h, test_predictions_v, test_predictions_o = groove_transformer.predict(test_inputs,
                                                                                                 use_thres=True,
                                                                                                 thres=0.5)

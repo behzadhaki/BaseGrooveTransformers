@@ -108,7 +108,6 @@ class GrooveTransformerEncoder(torch.nn.Module):
 
     def forward(self, src):
         # src Nx32xembedding_size_src
-
         x = self.InputLayerEncoder(src)  # Nx32xd_model
         memory = self.Encoder(x)  # Nx32xd_model
         out = self.OutputLayer(
