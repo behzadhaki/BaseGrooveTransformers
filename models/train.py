@@ -5,37 +5,23 @@ import re
 import numpy as np
 from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
-h_div, v_div, o_div = -1, -1, -1
 
-
-def calculate_loss(prediction, y, bce_fn, mse_fn, h_loss_multiplier, v_loss_multiplier, o_loss_multiplier):
-    global h_div
-    global v_div
-    global o_div
+def calculate_loss(prediction, y, bce_fn, mse_fn, loss_penalty):
 
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
     pred_h, pred_v, pred_o = prediction
 
-    bce_h = bce_fn(pred_h, y_h)  # batch, time steps, voices
+    bce_h = bce_fn(pred_h, y_h) * loss_penalty  # batch, time steps, voices
     bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     bce_hits = bce_h_sum_voices.mean()
-    if h_div == -1:
-        h_div = bce_hits.item()
-    bce_hits = (bce_hits / h_div) * h_loss_multiplier
 
-    mse_v = mse_fn(pred_v, y_v)  # batch, time steps, voices
+    mse_v = mse_fn(pred_v, y_v) * loss_penalty # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
-    if v_div == -1:
-        v_div = mse_velocities.item()
-    mse_velocities = (mse_velocities / v_div) * v_loss_multiplier
 
-    mse_o = mse_fn(pred_o, y_o)
+    mse_o = mse_fn(pred_o, y_o) * loss_penalty
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
     mse_offsets = mse_o_sum_voices.mean()
-    if o_div == -1:
-        o_div = mse_offsets.item()
-    mse_offsets = (mse_offsets / o_div) * o_loss_multiplier
 
     total_loss = bce_hits + mse_velocities + mse_offsets
 
@@ -121,17 +107,18 @@ def initialize_model(params):
 
 
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save, device,
-               encoder_only, test_inputs=None, test_gt=None, h_loss_mult=1, v_loss_mult=1, o_loss_mult=1):
+               encoder_only, test_inputs=None, test_gt=None, test_eval_loss_penalties=None):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
 
-    for batch, (x, y, idx) in enumerate(dataloader):
+    for batch, (x, y, loss_penalty, idx) in enumerate(dataloader):
 
         opt.zero_grad()
 
         x = x.to(device)
         y = y.to(device)
+        loss_penalty = loss_penalty.to(device)
 
         # Compute prediction and loss
         if encoder_only:
@@ -143,8 +130,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             pred = groove_transformer(x, y_s)
 
         loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn,
-                                                                                    h_loss_mult, v_loss_mult,
-                                                                                    o_loss_mult)
+                                                                                    loss_penalty)
 
         # Backpropagation
         loss.backward()
@@ -175,13 +161,13 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
 
-    if test_inputs is not None and test_gt is not None:
+    if test_inputs is not None and test_gt is not None and test_eval_loss_penalties is not None:
         test_predictions_h, test_predictions_v, test_predictions_o = groove_transformer.predict(test_inputs,
                                                                                                 use_thres=True,
                                                                                                 thres=0.5)
         test_predictions = (test_predictions_h.float(), test_predictions_v.float(), test_predictions_o.float())
         test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
-            loss_fn(test_predictions, test_gt, bce_fn, mse_fn, h_loss_mult, v_loss_mult, o_loss_mult)
+            loss_fn(test_predictions, test_gt, bce_fn, mse_fn, test_eval_loss_penalties)
         wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                    'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
                    'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
