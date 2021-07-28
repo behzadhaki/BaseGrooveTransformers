@@ -48,14 +48,14 @@ def initialize_model(params):
                                                       model_params['embedding_size_tgt'], model_params['n_heads'],
                                                       model_params['dim_feedforward'], model_params['dropout'],
                                                       model_params['num_encoder_layers'],
-                                                      model_params['num_decoder_layers'],
                                                       model_params['max_len'], model_params['device'])
     else:
         groove_transformer = GrooveTransformer(model_params['d_model'],
                                                model_params['embedding_size_src'],
                                                model_params['embedding_size_tgt'], model_params['n_heads'],
                                                model_params['dim_feedforward'], model_params['dropout'],
-                                               model_params['num_encoder_layers'], model_params['num_decoder_layers'],
+                                               model_params['num_encoder_layers'],
+                                               model_params['num_decoder_layers'],
                                                model_params['max_len'], model_params['device'])
 
     groove_transformer.to(model_params['device'])
