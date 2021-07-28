@@ -181,17 +181,18 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         test_gt = test_gt.to(device)
 
         groove_transformer.eval()
-        if encoder_only:
-            test_predictions = groove_transformer(test_inputs)
-        else:
-            # test_gt_shifted
-            test_gt_s = torch.zeros([test_gt.shape[0], 1, test_gt.shape[2]]).to(device)
-            test_gt_s = torch.cat((test_gt_s, test_gt[:, :-1, :]), dim=1).to(device)
-            test_predictions = groove_transformer(test_inputs, test_gt_s)
-        test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
-            loss_fn(test_predictions, test_gt, bce_fn, mse_fn, h_loss_mult, v_loss_mult, o_loss_mult)
-        wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
-                   'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
-                   'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
+        with torch.no_grad():
+            if encoder_only:
+                test_predictions = groove_transformer(test_inputs)
+            else:
+                # test_gt_shifted
+                test_gt_s = torch.zeros([test_gt.shape[0], 1, test_gt.shape[2]]).to(device)
+                test_gt_s = torch.cat((test_gt_s, test_gt[:, :-1, :]), dim=1).to(device)
+                test_predictions = groove_transformer(test_inputs, test_gt_s)
+            test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
+                loss_fn(test_predictions, test_gt, bce_fn, mse_fn, h_loss_mult, v_loss_mult, o_loss_mult)
+            wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
+                       'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
+                       'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
 
     return loss.item()
