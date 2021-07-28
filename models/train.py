@@ -176,12 +176,14 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
 
     if test_inputs is not None and test_gt is not None:
-        test_inputs = test_inputs.to(device)
-        test_gt = test_gt.to(device)
-        test_predictions_h, test_predictions_v, test_predictions_o = groove_transformer.predict(test_inputs,
-                                                                                                use_thres=True,
-                                                                                                thres=0.5)
-        test_predictions = (test_predictions_h.float(), test_predictions_v.float(), test_predictions_o.float())
+        groove_transformer.eval()
+        if encoder_only:
+            test_predictions = groove_transformer(test_inputs)
+        else:
+            # test_gt_shifted
+            test_gt_s = torch.zeros([test_gt.shape[0], 1, test_gt.shape[2]]).to(device)
+            test_gt_s = torch.cat((test_gt_s, test_gt[:, :-1, :]), dim=1).to(device)
+            test_predictions = groove_transformer(test_inputs, test_gt_s)
         test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
             loss_fn(test_predictions, test_gt, bce_fn, mse_fn, h_loss_mult, v_loss_mult, o_loss_mult)
         wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
