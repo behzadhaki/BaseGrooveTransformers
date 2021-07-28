@@ -15,7 +15,7 @@ def calculate_loss(prediction, y, bce_fn, mse_fn, loss_penalty):
     bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     bce_hits = bce_h_sum_voices.mean()
 
-    mse_v = mse_fn(pred_v, y_v) * loss_penalty # batch, time steps, voices
+    mse_v = mse_fn(pred_v, y_v) * loss_penalty  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
 
@@ -162,18 +162,22 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
 
     if test_inputs is not None and test_gt is not None and test_eval_loss_penalties is not None:
+        test_inputs = test_inputs.to(device)
+        test_gt = test_gt.to(device)
+        test_eval_loss_penalties = test_eval_loss_penalties.to(device)
         groove_transformer.eval()
-        if encoder_only:
-            test_predictions = groove_transformer(test_inputs)
-        else:
-            # test_gt_shifted
-            test_gt_s = torch.zeros([test_gt.shape[0], 1, test_gt.shape[2]]).to(device)
-            test_gt_s = torch.cat((test_gt_s, test_gt[:, :-1, :]), dim=1).to(device)
-            test_predictions = groove_transformer(test_inputs, test_gt_s)
-        test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
-            loss_fn(test_predictions, test_gt, bce_fn, mse_fn, test_eval_loss_penalties)
-        wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
-                   'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
-                   'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
+        with torch.no_grad():
+            if encoder_only:
+                test_predictions = groove_transformer(test_inputs)
+            else:
+                # test_gt_shifted
+                test_gt_s = torch.zeros([test_gt.shape[0], 1, test_gt.shape[2]]).to(device)
+                test_gt_s = torch.cat((test_gt_s, test_gt[:, :-1, :]), dim=1).to(device)
+                test_predictions = groove_transformer(test_inputs, test_gt_s)
+            test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
+                loss_fn(test_predictions, test_gt, bce_fn, mse_fn, test_eval_loss_penalties)
+            wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
+                       'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
+                       'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
 
     return loss.item()
