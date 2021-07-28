@@ -85,7 +85,7 @@ class GrooveTransformer(torch.nn.Module):
 
 class GrooveTransformerEncoder(torch.nn.Module):
     def __init__(self, d_model, embedding_size_src, embedding_size_tgt, nhead, dim_feedforward, dropout,
-                 num_encoder_layers, num_decoder_layers, max_len, device):
+                 num_encoder_layers, max_len, device):
         super(GrooveTransformerEncoder, self).__init__()
 
         self.d_model = d_model
@@ -96,7 +96,6 @@ class GrooveTransformerEncoder(torch.nn.Module):
         self.dropout = dropout
         self.max_len = max_len
         self.num_encoder_layers = num_encoder_layers
-        self.num_decoder_layers = num_decoder_layers
         self.device = device
 
         self.InputLayerEncoder = InputLayer(embedding_size_src, d_model, dropout, max_len)
@@ -108,7 +107,6 @@ class GrooveTransformerEncoder(torch.nn.Module):
 
     def forward(self, src):
         # src Nx32xembedding_size_src
-
         x = self.InputLayerEncoder(src)  # Nx32xd_model
         memory = self.Encoder(x)  # Nx32xd_model
         out = self.OutputLayer(

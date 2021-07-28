@@ -6,20 +6,22 @@ import numpy as np
 from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
 
-def calculate_loss(prediction, y, bce_fn, mse_fn, loss_penalty):
+def calculate_loss(prediction, y, bce_fn, mse_fn, hit_loss_penalty):
 
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
     pred_h, pred_v, pred_o = prediction
 
-    bce_h = bce_fn(pred_h, y_h) * loss_penalty  # batch, time steps, voices
+    hit_loss_penalty_mat = torch.where(y_h == 1, float(1), float(hit_loss_penalty))
+
+    bce_h = bce_fn(pred_h, y_h) * hit_loss_penalty_mat  # batch, time steps, voices
     bce_h_sum_voices = torch.sum(bce_h, dim=2)  # batch, time_steps
     bce_hits = bce_h_sum_voices.mean()
 
-    mse_v = mse_fn(pred_v, y_v) * loss_penalty  # batch, time steps, voices
+    mse_v = mse_fn(pred_v, y_v) * hit_loss_penalty_mat  # batch, time steps, voices
     mse_v_sum_voices = torch.sum(mse_v, dim=2)  # batch, time_steps
     mse_velocities = mse_v_sum_voices.mean()
 
-    mse_o = mse_fn(pred_o, y_o) * loss_penalty
+    mse_o = mse_fn(pred_o, y_o) * hit_loss_penalty_mat
     mse_o_sum_voices = torch.sum(mse_o, dim=2)
     mse_offsets = mse_o_sum_voices.mean()
 
@@ -48,14 +50,14 @@ def initialize_model(params):
                                                       model_params['embedding_size_tgt'], model_params['n_heads'],
                                                       model_params['dim_feedforward'], model_params['dropout'],
                                                       model_params['num_encoder_layers'],
-                                                      model_params['num_decoder_layers'],
                                                       model_params['max_len'], model_params['device'])
     else:
         groove_transformer = GrooveTransformer(model_params['d_model'],
                                                model_params['embedding_size_src'],
                                                model_params['embedding_size_tgt'], model_params['n_heads'],
                                                model_params['dim_feedforward'], model_params['dropout'],
-                                               model_params['num_encoder_layers'], model_params['num_decoder_layers'],
+                                               model_params['num_encoder_layers'],
+                                               model_params['num_decoder_layers'],
                                                model_params['max_len'], model_params['device'])
 
     groove_transformer.to(model_params['device'])
@@ -107,18 +109,17 @@ def initialize_model(params):
 
 
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save, device,
-               encoder_only, test_inputs=None, test_gt=None, test_eval_loss_penalties=None):
+               encoder_only, hit_loss_penalty=1, test_inputs=None, test_gt=None):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
 
-    for batch, (x, y, loss_penalty, idx) in enumerate(dataloader):
+    for batch, (x, y, idx) in enumerate(dataloader):
 
         opt.zero_grad()
 
         x = x.to(device)
         y = y.to(device)
-        loss_penalty = loss_penalty.to(device)
 
         # Compute prediction and loss
         if encoder_only:
@@ -130,7 +131,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             pred = groove_transformer(x, y_s)
 
         loss, training_accuracy, training_perplexity, bce_h, mse_v, mse_o = loss_fn(pred, y, bce_fn, mse_fn,
-                                                                                    loss_penalty)
+                                                                                    hit_loss_penalty)
 
         # Backpropagation
         loss.backward()
@@ -161,10 +162,10 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
 
-    if test_inputs is not None and test_gt is not None and test_eval_loss_penalties is not None:
+
+    if test_inputs is not None and test_gt is not None:
         test_inputs = test_inputs.to(device)
         test_gt = test_gt.to(device)
-        test_eval_loss_penalties = test_eval_loss_penalties.to(device)
         groove_transformer.eval()
         with torch.no_grad():
             if encoder_only:
@@ -175,7 +176,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                 test_gt_s = torch.cat((test_gt_s, test_gt[:, :-1, :]), dim=1).to(device)
                 test_predictions = groove_transformer(test_inputs, test_gt_s)
             test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
-                loss_fn(test_predictions, test_gt, bce_fn, mse_fn, test_eval_loss_penalties)
+                loss_fn(test_predictions, test_gt, bce_fn, mse_fn, hit_loss_penalty)
             wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                        'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
                        'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
