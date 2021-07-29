@@ -37,7 +37,8 @@ def calculate_loss(prediction, y, bce_fn, mse_fn, hit_loss_penalty):
 
     hit_perplexity = torch.exp(bce_hits)
 
-    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_hits, mse_velocities, mse_offsets
+    return total_loss, hit_accuracy.item(), hit_perplexity.item(), bce_hits.item(), mse_velocities.item(), \
+           mse_offsets.item()
 
 
 def initialize_model(params):
@@ -148,9 +149,9 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             print(f"loss: {loss.item():>4f}  [{current:>4d}/{size:>4d}]")
             print("hit accuracy:", np.round(training_accuracy, 4))
             print("hit perplexity: ", np.round(training_perplexity, 4))
-            print("hit bce: ", np.round(bce_h.item(), 4))
-            print("velocity mse: ", np.round(mse_v.item(), 4))
-            print("offset mse: ", np.round(mse_o.item(), 4))
+            print("hit bce: ", np.round(bce_h, 4))
+            print("velocity mse: ", np.round(mse_v, 4))
+            print("offset mse: ", np.round(mse_o, 4))
 
     if save:
         # if we save the model in the wandb dir, it will be uploaded after training
@@ -160,7 +161,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
 
         save_filename = os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
-                    'optimizer_state_dict': opt.state_dict(), 'loss': loss}, save_filename)
+                    'optimizer_state_dict': opt.state_dict(), 'loss': loss.item()}, save_filename)
 
 
     if test_inputs is not None and test_gt is not None:
@@ -178,7 +179,10 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
                 loss_fn(test_predictions, test_gt, bce_fn, mse_fn, hit_loss_penalty)
             wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
-                       'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h.item(),
-                       'test_velocity_loss': test_mse_v.item(), 'test_offset_loss': test_mse_o.item(), 'epoch': epoch})
+                       'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h,
+                       'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch})
+
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     return loss.item()
