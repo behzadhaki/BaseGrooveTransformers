@@ -155,15 +155,13 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             print("offset mse: ", np.round(mse_o, 4))
 
     if save:
-        # if we save the model in the wandb dir, it will be uploaded after training
-        save_path = os.path.join(wandb.run.dir, "saved_models")
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
 
-        save_filename = os.path.join(save_path, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch))
+        save_filename = os.path.join(wandb.run.dir, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss.item()}, save_filename)
 
+        # save model during training (if the training crashes, models will still be available at wandb.ai)
+        wandb.save(save_filename, base_path = wandb.run.dir)
 
     if test_inputs is not None and test_gt is not None:
         test_inputs = test_inputs.to(device)
