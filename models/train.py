@@ -142,7 +142,8 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
 
         if batch % 1 == 0:
             wandb.log({'loss': loss.item(), 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
-                       'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch, 'batch': batch})
+                       'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch,
+                       'batch': batch}, commit=False)
         if batch % 100 == 0:
             print('=======')
             current = batch * len(x)
@@ -180,7 +181,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                 loss_fn(test_predictions, test_gt, bce_fn, mse_fn, hit_loss_penalty)
             wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                        'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h,
-                       'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch})
+                       'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch}, commit=False)
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
