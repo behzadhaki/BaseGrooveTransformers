@@ -110,7 +110,8 @@ def initialize_model(params):
 
 
 def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epoch, save, device,
-               encoder_only, hit_loss_penalty=1, test_inputs=None, test_gt=None):
+               encoder_only, hit_loss_penalty=1, test_inputs=None, test_gt=None, validation_inputs=None,
+               validation_gt=None):
     size = len(dataloader.dataset)
     groove_transformer.train()  # train mode
     loss = 0
@@ -180,6 +181,26 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                        'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h,
                        'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch}, commit=False)
+
+    if validation_inputs is not None and validation_gt is not None:
+        validation_inputs = validation_inputs.to(device)
+        validation_gt = validation_gt.to(device)
+        groove_transformer.eval()
+        with torch.no_grad():
+            if encoder_only:
+                validation_predictions = groove_transformer(validation_inputs)
+            else:
+                # validation_gt_shifted
+                validation_gt_s = torch.zeros([validation_gt.shape[0], 1, validation_gt.shape[2]]).to(device)
+                validation_gt_s = torch.cat((validation_gt_s, validation_gt[:, :-1, :]), dim=1).to(device)
+                validation_predictions = groove_transformer(validation_inputs, validation_gt_s)
+            validation_loss, validation_hits_accuracy, validation_hits_perplexity, validation_bce_h, validation_mse_v, \
+            validation_mse_o = loss_fn(validation_predictions, validation_gt, bce_fn, mse_fn, hit_loss_penalty)
+            wandb.log({'validation_loss': validation_loss.item(), 'validation_hit_accuracy': validation_hits_accuracy,
+                       'validation_hit_perplexity': validation_hits_perplexity, 'validation_hit_loss': validation_bce_h,
+                       'validation_velocity_loss': validation_mse_v, 'validation_offset_loss': validation_mse_o,
+                       'epoch': epoch},
+                      commit=False)
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
