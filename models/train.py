@@ -180,7 +180,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                 loss_fn(test_predictions, test_gt, bce_fn, mse_fn, hit_loss_penalty)
             wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                        'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h,
-                       'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch}, commit=False)
+                       'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch})
 
     if validation_inputs is not None and validation_gt is not None:
         validation_inputs = validation_inputs.to(device)
@@ -199,8 +199,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             wandb.log({'validation_loss': validation_loss.item(), 'validation_hit_accuracy': validation_hits_accuracy,
                        'validation_hit_perplexity': validation_hits_perplexity, 'validation_hit_loss': validation_bce_h,
                        'validation_velocity_loss': validation_mse_v, 'validation_offset_loss': validation_mse_o,
-                       'epoch': epoch},
-                      commit=False)
+                       'epoch': epoch})
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
