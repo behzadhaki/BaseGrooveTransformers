@@ -178,6 +178,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                 test_predictions = groove_transformer(test_inputs, test_gt_s)
             test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
                 loss_fn(test_predictions, test_gt, bce_fn, mse_fn, hit_loss_penalty)
+            #FIXME this overwrites previous batch losses. push averaged loss over batches or commit=True
             wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                        'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h,
                        'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch}, commit=False)
