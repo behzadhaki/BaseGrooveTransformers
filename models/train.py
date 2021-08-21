@@ -144,7 +144,7 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         if batch % 1 == 0:
             wandb.log({'loss': loss.item(), 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
                        'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch,
-                       'batch': batch}, commit=False)
+                       'batch': batch}, commit=True)
         if batch % 100 == 0:
             print('=======')
             current = batch * len(x)
@@ -178,10 +178,10 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
                 test_predictions = groove_transformer(test_inputs, test_gt_s)
             test_loss, test_hits_accuracy, test_hits_perplexity, test_bce_h, test_mse_v, test_mse_o = \
                 loss_fn(test_predictions, test_gt, bce_fn, mse_fn, hit_loss_penalty)
-            #FIXME this overwrites previous batch losses. push averaged loss over batches or commit=True
             wandb.log({'test_loss': test_loss.item(), 'test_hit_accuracy': test_hits_accuracy,
                        'test_hit_perplexity': test_hits_perplexity, 'test_hit_loss': test_bce_h,
-                       'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch}, commit=False)
+                       'test_velocity_loss': test_mse_v, 'test_offset_loss': test_mse_o, 'epoch': epoch},
+                      commit=False)
 
     if validation_inputs is not None and validation_gt is not None:
         validation_inputs = validation_inputs.to(device)
