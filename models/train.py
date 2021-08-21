@@ -7,7 +7,6 @@ from models.transformer import GrooveTransformerEncoder, GrooveTransformer
 
 
 def calculate_loss(prediction, y, bce_fn, mse_fn, hit_loss_penalty):
-
     y_h, y_v, y_o = torch.split(y, int(y.shape[2] / 3), 2)  # split in voices
     pred_h, pred_v, pred_o = prediction
 
@@ -142,9 +141,9 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
         opt.step()
 
         if batch % 1 == 0:
-            wandb.log({'loss': loss.item(), 'hit_accuracy': training_accuracy, 'hit_perplexity': training_perplexity,
-                       'hit_loss': bce_h, 'velocity_loss': mse_v, 'offset_loss': mse_o, 'epoch': epoch,
-                       'batch': batch}, commit=True)
+            wandb.log({'train_loss': loss.item(), 'train_hit_accuracy': training_accuracy, 'train_hit_perplexity':
+                training_perplexity, 'train_hit_loss': bce_h, 'train_velocity_loss': mse_v, 'train_offset_loss':
+                mse_o, 'epoch': epoch, 'batch': batch}, commit=True)
         if batch % 100 == 0:
             print('=======')
             current = batch * len(x)
@@ -156,13 +155,12 @@ def train_loop(dataloader, groove_transformer, loss_fn, bce_fn, mse_fn, opt, epo
             print("offset mse: ", np.round(mse_o, 4))
 
     if save:
-
         save_filename = os.path.join(wandb.run.dir, "transformer_run_{}_Epoch_{}.Model".format(wandb.run.id, epoch))
         torch.save({'epoch': epoch, 'model_state_dict': groove_transformer.state_dict(),
                     'optimizer_state_dict': opt.state_dict(), 'loss': loss.item()}, save_filename)
 
         # save model during training (if the training crashes, models will still be available at wandb.ai)
-        wandb.save(save_filename, base_path = wandb.run.dir)
+        wandb.save(save_filename, base_path=wandb.run.dir)
 
     if test_inputs is not None and test_gt is not None:
         test_inputs = test_inputs.to(device)
